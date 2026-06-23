@@ -986,7 +986,7 @@
       }
     }
 
-    function renderOddsDesk(data) {
+    function renderOddsDesk(data, captionOverride = null) {
       const percentageEl = document.getElementById('odds-percentage');
       const captionEl = document.getElementById('odds-caption');
       const barEl = document.getElementById('odds-bar');
@@ -994,7 +994,7 @@
       if (!data || data.probability_pct === null || data.probability_pct === undefined) {
         percentageEl.textContent = '—%';
         percentageEl.classList.add('odds-placeholder');
-        captionEl.textContent = '…still being totted up by the desk.';
+        captionEl.textContent = captionOverride || '…still being totted up by the desk.';
         captionEl.classList.add('odds-placeholder');
         barEl.className = 'odds-bar loading-bar';
         barEl.innerHTML = '';
@@ -1184,7 +1184,7 @@
         // Determine state and render commentary
         if (simulateOffline) {
           // Offline state - show canned trio
-          renderOddsDesk(null);
+          renderOddsDesk(null, '…the desk is out. The verdict above stands regardless.');
           renderCannedTrio();
           currentState = states.OFFLINE;
         } else if (simulateJudgeFail) {
@@ -1215,7 +1215,7 @@
             }
           } else {
             // API unreachable
-            renderOddsDesk(null);
+            renderOddsDesk(null, '…the desk is out. The verdict above stands regardless.');
             renderCannedTrio();
             currentState = states.OFFLINE;
           }
