@@ -1,6 +1,6 @@
 # Is Andy Burnham the UK Prime Minister yet?
 
-> **Note:** This project is also a test of using Magnus's AI-assisted development template (originally built for Claude Code) with Mistral Vibe CLI.
+> **Note:** This project is mainlyb really just a test of using Magnus's AI-assisted development template (originally built for Claude Code) with Mistral Vibe CLI.
 
 ---
 
