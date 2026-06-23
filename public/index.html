@@ -879,19 +879,20 @@
     const COMMENTARY_TIMEOUT = 8000; // 8 seconds timeout for Worker API
 
     async function fetchCommentary() {
+      let timeoutId = null;
       try {
         const controller = new AbortController();
-        const id = setTimeout(() => controller.abort(), COMMENTARY_TIMEOUT);
+        timeoutId = setTimeout(() => controller.abort(), COMMENTARY_TIMEOUT);
         
         const response = await fetch('/api/commentary', { signal: controller.signal });
-        clearTimeout(id);
+        clearTimeout(timeoutId);
         
         if (!response.ok) {
           throw new Error(`API error: ${response.status}`);
         }
         return await response.json();
       } catch (error) {
-        clearTimeout(id);
+        if (timeoutId) clearTimeout(timeoutId);
         console.error('Commentary API error:', error);
         return null;
       }
