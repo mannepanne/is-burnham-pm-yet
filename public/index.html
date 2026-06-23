@@ -741,6 +741,9 @@
         SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
       }
     `;
+    const WIKIDATA_TIMEOUT = 10000; // 10 seconds timeout
+    const WIKIDATA_RETRY_DELAY = 3000; // 3 seconds between retries
+    const WIKIDATA_MAX_RETRIES = 2; // Max 2 retries
 
     // ========================================
     // State Management
@@ -755,6 +758,7 @@
 
     let currentState = states.LOADING;
     let pmCount = BASE_PM_COUNT;
+    let lastWikidataCheck = null;
 
     // ========================================
     // Canned Fallback Trio (from handoff)
@@ -809,38 +813,78 @@
     // ========================================
     // Data Fetching
     // ========================================
-    async function fetchWikidataAnswer() {
+    // Helper to add timeout to fetch
+    async function fetchWithTimeout(url, options, timeout) {
+      const controller = new AbortController();
+      const id = setTimeout(() => controller.abort(), timeout);
+      
       try {
-        const encodedQuery = encodeSPARQL(WIKIDATA_QUERY);
-        const url = `https://query.wikidata.org/sparql?format=json&query=${encodedQuery}`;
-        
         const response = await fetch(url, {
-          headers: {
-            'Accept': 'application/sparql-results+json'
-          }
+          ...options,
+          signal: controller.signal
         });
-
-        if (!response.ok) {
-          throw new Error(`Wikidata HTTP error: ${response.status}`);
-        }
-
-        const data = await response.json();
-        const labels = data.results?.bindings?.map(b => b.pmLabel?.value) || [];
-        return isBurnhamPM(labels);
+        clearTimeout(id);
+        return response;
       } catch (error) {
-        console.error('Wikidata fetch error:', error);
-        return false; // Default to Not yet on any error
+        clearTimeout(id);
+        throw error;
       }
     }
 
+    async function fetchWikidataAnswer() {
+      let lastError = null;
+      
+      for (let attempt = 0; attempt <= WIKIDATA_MAX_RETRIES; attempt++) {
+        try {
+          const encodedQuery = encodeSPARQL(WIKIDATA_QUERY);
+          const url = `https://query.wikidata.org/sparql?format=json&query=${encodedQuery}`;
+          
+          const response = await fetchWithTimeout(url, {
+            headers: {
+              'Accept': 'application/sparql-results+json'
+            }
+          }, WIKIDATA_TIMEOUT);
+
+          if (!response.ok) {
+            throw new Error(`Wikidata HTTP error: ${response.status}`);
+          }
+
+          const data = await response.json();
+          const labels = data.results?.bindings?.map(b => b.pmLabel?.value) || [];
+          lastWikidataCheck = new Date();
+          return isBurnhamPM(labels);
+          
+        } catch (error) {
+          lastError = error;
+          console.warn(`Wikidata fetch attempt ${attempt + 1} failed:`, error);
+          
+          if (attempt < WIKIDATA_MAX_RETRIES) {
+            await new Promise(resolve => setTimeout(resolve, WIKIDATA_RETRY_DELAY));
+          }
+        }
+      }
+      
+      console.error('Wikidata fetch failed after retries:', lastError);
+      lastWikidataCheck = new Date();
+      return false; // Default to Not yet on any error
+    }
+
+    const COMMENTARY_TIMEOUT = 8000; // 8 seconds timeout for Worker API
+
     async function fetchCommentary() {
       try {
-        const response = await fetch('/api/commentary');
+        const controller = new AbortController();
+        const id = setTimeout(() => controller.abort(), COMMENTARY_TIMEOUT);
+        
+        const response = await fetch('/api/commentary', { signal: controller.signal });
+        clearTimeout(id);
+        
         if (!response.ok) {
           throw new Error(`API error: ${response.status}`);
         }
         return await response.json();
       } catch (error) {
+        clearTimeout(id);
         console.error('Commentary API error:', error);
         return null;
       }
@@ -882,7 +926,7 @@
         heroPeriodEl.textContent = '.';
         heroPeriodEl.style.color = 'var(--green)';
         heroSubtitleEl.textContent = '(finally. you may sit down.)';
-        heroStatusEl.textContent = 'Scoreboard last checked: just now · confirmed via Wikidata Q145 · P6';
+        heroStatusEl.textContent = formatScoreboardStatus(true);
         currentState = states.YES;
       } else {
         pmCount = BASE_PM_COUNT;
@@ -890,12 +934,27 @@
         heroPeriodEl.textContent = '.';
         heroPeriodEl.style.color = 'var(--amber)';
         heroSubtitleEl.textContent = '(but ask again in a month)';
-        heroStatusEl.textContent = 'Scoreboard last checked: just now · the default answer is usually correct';
+        heroStatusEl.textContent = formatScoreboardStatus(false);
         currentState = states.NOT_YET;
       }
 
       updatePMCount();
       updateFooterStatus();
+    }
+
+    function formatScoreboardStatus(isYes) {
+      if (lastWikidataCheck) {
+        const timeStr = lastWikidataCheck.toLocaleTimeString('en-GB', {
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+        return isYes 
+          ? `Scoreboard last checked: ${timeStr} · confirmed via Wikidata Q145 · P6`
+          : `Scoreboard last checked: ${timeStr} · the default answer is usually correct`;
+      }
+      return isYes 
+        ? 'Scoreboard last checked: just now · confirmed via Wikidata Q145 · P6'
+        : 'Scoreboard last checked: just now · the default answer is usually correct';
     }
 
     function updatePMCount() {
