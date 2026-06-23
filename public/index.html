@@ -810,6 +810,13 @@
       );
     }
 
+    function setHeroLoading() {
+      const heroStatusEl = document.getElementById('hero-status');
+      if (heroStatusEl) {
+        heroStatusEl.textContent = 'Checking the scoreboard…';
+      }
+    }
+
     // ========================================
     // Data Fetching
     // ========================================
@@ -913,7 +920,7 @@
       return null;
     }
 
-    function renderHero(isYes) {
+    function renderHero(isYes, isForced = false) {
       const heroAnswerEl = document.getElementById('hero-answer');
       const heroAnswerTextEl = document.getElementById('hero-answer-text');
       const heroPeriodEl = document.getElementById('hero-period');
@@ -926,7 +933,7 @@
         heroPeriodEl.textContent = '.';
         heroPeriodEl.style.color = 'var(--green)';
         heroSubtitleEl.textContent = '(finally. you may sit down.)';
-        heroStatusEl.textContent = formatScoreboardStatus(true);
+        heroStatusEl.textContent = formatScoreboardStatus(true, isForced);
         currentState = states.YES;
       } else {
         pmCount = BASE_PM_COUNT;
@@ -934,7 +941,7 @@
         heroPeriodEl.textContent = '.';
         heroPeriodEl.style.color = 'var(--amber)';
         heroSubtitleEl.textContent = '(but ask again in a month)';
-        heroStatusEl.textContent = formatScoreboardStatus(false);
+        heroStatusEl.textContent = formatScoreboardStatus(false, isForced);
         currentState = states.NOT_YET;
       }
 
@@ -942,7 +949,12 @@
       updateFooterStatus();
     }
 
-    function formatScoreboardStatus(isYes) {
+    function formatScoreboardStatus(isYes, isForced = false) {
+      if (isForced) {
+        return isYes 
+          ? 'Scoreboard overridden: YES (forced via query param)'
+          : 'Scoreboard overridden: NOT YET (forced via query param)';
+      }
       if (lastWikidataCheck) {
         const timeStr = lastWikidataCheck.toLocaleTimeString('en-GB', {
           hour: '2-digit',
@@ -1136,6 +1148,7 @@
     async function init() {
       // Set up dynamic elements
       updateMastheadDate();
+      setHeroLoading();
 
       // Check for forced YES state
       const urlParams = new URLSearchParams(window.location.search);
@@ -1152,15 +1165,19 @@
 
       // Determine hero answer
       let isYes;
+      let isForced = false;
+      
       if (forceYes) {
         isYes = true;
+        isForced = true;
       } else if (forceNo) {
         isYes = false;
+        isForced = true;
       } else {
         isYes = await fetchWikidataAnswer();
       }
 
-      renderHero(isYes);
+      renderHero(isYes, isForced);
 
       // Determine state and render commentary
       if (simulateOffline) {
