@@ -1,96 +1,72 @@
-# Project template for AI-Assisted development
+# Is Andy Burnham the UK Prime Minister yet?
 
-My (Magnus Hultberg) battle-tested project template for working with Mistral Vibe CLI. Originally adapted from my Claude Code template ([useful-assets-template](https://github.com/mannepanne/useful-assets-template)), refined over 12-18 months of AI-assisted development.
-
-## What is this
-
-This template encapsulates patterns and workflows that have worked well for me when building software with AI assistants like Mistral Vibe. It's opinionated, practical, and designed to minimise friction while maximising collaboration quality and consistency of output over time.
-
-## First-time setup
-
-**Before you start:** Run `skill(name="setup-profile")` to configure your personal collaboration profile and review system settings. This only needs to be done once per project.
-
-## Core principles
-
-**Lifecycle-based documentation** - Documents move through clear stages (ORIGINAL IDEA → SPECIFICATIONS → REFERENCE → ARCHIVE), keeping active context minimal and focused.
-
-**Tests as guardrails** - Tests serve dual purposes: validation as well as directional context for AI driven changes and refinements. They guide how to evolve a build, not just verify it works.
-
-**Token efficiency** - AGENTS.md files act as "library indexes" that lazy-load context only when needed (NOTE: works really well in Claude Code, but not supported in mistral Vibe CLI - I am hoping it will be in the future and until then I have made the two AGENTS.md that Vibe DOES read more detailed...). My opinion is that this makes token usage more efficient, and leads to better results.
-
-**Collaboration framework** - Clear behavioral guidelines for working with AI (directness over politeness, evidence-based pushback, systematic decision-making). Collaboration mode support for "product management" style work as well as software development.
-
-**Systematic over ad-hoc** - Consistent patterns (PR reviews, phased implementation structure, testing strategy) that compound over time.
-
-## What's inside
-
-```
-.vibe/                      # Vibe collaboration config (auto-loads)
-├── AGENTS.md              # Collaboration principles and navigation
-├── COLLABORATION/         # Behavioral guidance, PM mode, tech preferences
-├── config/                # Vibe configuration files
-│   ├── permissions.json   # Tool permission system
-│   └── project-config.json # Per-project feature flags
-├── agents/                # Subagent definitions
-├── skills/                # Automated workflows and review systems
-└── hooks/                 # Hooks/permissions documentation
-
-.claude/                    # Preserved for backward compatibility
-├── COLLABORATION/         # Original Claude behavioral guidance
-├── skills/                # Original Claude automated workflows
-├── agents/                # Original Claude agent definitions
-└── project-config.json    # Original Claude configuration
-
-SPECIFICATIONS/            # What are we building
-├── ORIGINAL_IDEA/        # Initial project vision
-└── ARCHIVE/              # Completed phase specs and migration history
-    └── migration-from-claude/ # Migration documents (Claude → Vibe)
-
-REFERENCE/                 # How implemented features work
-├── vibe-learning-notes.md    # Vibe-specific learnings
-├── vibe-architecture-overview.md # Vibe architecture reference
-├── vibe-permissions.md       # Vibe permission system documentation
-├── vibe-safety.md            # Vibe safety mechanisms
-├── testing-strategy.md
-├── environment-setup.md
-└── troubleshooting.md
-```
-
-**Automated reviews are opt-in.** The first time you invoke `review-pr`, `review-pr-team`, or `review-spec` skills, you'll be asked whether to enable the review system for this project. Your answer persists in `.vibe/config/project-config.json`. For throwaway experiments where reviews are overkill, answer `no` once — all review skills become no-ops. You can change your mind later by editing the file.
-
-## If you want to try using this as a template
-
-1. **Use this template** (click "Use this template" button on GitHub) or download the zip and rename the folder
-2. **Open Vibe in the folder and have a conversation about your project** — the template is designed to be customised through chat, not by editing files yourself
-3. **Let Vibe de-templatify the docs** based on what you discussed
-4. **Start building** — break the project into phases, work systematically, one PR at a time
-
-Full walkthrough (with example prompts) in [TEMPLATE-INSTRUCTIONS.md](./TEMPLATE-INSTRUCTIONS.md). It's short — and aimed at non-technical users too.
-
-## Why did I end up here...
-
-After 12-18 months of LLM-assisted coding, a few things became clear:
-
-- **AI assistants are coworkers, not servants** - Best results come from treating them as collaborators with domain expertise
-- **Documentation is leverage** - Good docs enable both AI and humans to pick up work quickly, context matters
-- **Tests guide better than specs alone** - Especially with AI, detailed specifications and ways of working mitigate drift
-- **Simple beats clever** - Patterns that are easy to explain work better than complex optimization
-- **Consistency compounds** - Using the same structure across projects builds muscle memory (yours and the AI's)
-
-## Technology defaults
-
-These are my preferences that I tend to reuse for all projects I dive into. YMMV, so if you try this template you should carefully review this section and make it yours.
-
-TypeScript, Next.js, Cloudflare Workers, Supabase, Vitest - but easily customizable. See `.vibe/COLLABORATION/technology-preferences.md` for rationale.
-
-## Credits
-
-Collaboration patterns inspired by [@obra](https://github.com/obra), [@harperreed](https://github.com/harperreed), [OpenAI's Harness Engineering](https://openai.com/index/harness-engineering/), and [steipete/agent-rules](https://github.com/steipete/agent-rules).
-
-## License
-
-MIT - Use freely, adapt as needed, share improvements.
+> **Note:** This project is also a test of using Magnus's AI-assisted development template (originally built for Claude Code) with Mistral Vibe CLI.
 
 ---
 
-**Ready to start?** Read [TEMPLATE-INSTRUCTIONS.md](./TEMPLATE-INSTRUCTIONS.md) to get going — it's short and aimed at non-technical users too.
+A satirical one-page website that answers a single binary question and contrasts the calm, authoritative truth with the frothy, detail-obsessed UK political press coverage.
+
+The site is styled as *The Daily Non-Forecast*, a newspaper front page where a huge "Yes." or "Not yet." dominates the viewport, while a panel of curated press articles below reveals the media's obsession with trivia (coats, zips, trams) rather than the actual question.
+
+---
+
+## Quick Start
+
+```bash
+# Install dependencies
+npm install
+
+# Local development
+npx wrangler dev
+
+# Open in browser: http://localhost:8787
+```
+
+---
+
+## Features
+
+- **Hero answer** from Wikidata SPARQL (client-side, no server dependency)
+- **Probability readout** from Perplexity Sonar API via Worker
+- **Press panel** with articles judged and curated by Claude
+- **Six states**: loading, NOT YET, YES, judge-fallback, offline, empty
+- **Caching** via Workers KV with cron trigger
+
+---
+
+## Architecture
+
+Single Cloudflare Worker with static assets binding:
+- `GET /` serves `public/index.html`
+- `GET /api/commentary` Worker retrieves & curates press articles
+
+No database, no Pages, no Sites — just one `wrangler dev` server.
+
+---
+
+## Query Param Testing
+
+| Param | Effect |
+|-------|--------|
+| `?force=yes` | Simulate Burnham as PM (green "Yes.") |
+| `?force=no` | Force "Not yet." state |
+| `?simulate=offline` | Show canned trio fallback |
+| `?simulate=judge-fail` | Show single neutral card |
+
+---
+
+## Configuration
+
+Create `.dev.vars` for local development:
+```
+PERPLEXITY_API_KEY=your_key_here
+ANTHROPIC_API_KEY=your_key_here
+```
+
+Production secrets via `wrangler secret put`.
+
+---
+
+## License
+
+MIT
