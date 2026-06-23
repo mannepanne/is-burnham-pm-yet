@@ -1,0 +1,15 @@
+name = "andy-burnham-yet"
+main = "src/worker.js"
+compatibility_date = "2026-06-23"
+
+[assets]
+directory = "./public"
+
+# KV namespace for caching (will be added in Phase 4)
+# [[kv_namespaces]]
+# binding = "COMMENTARY_CACHE"
+# id = "<to-be-created>"
+
+# Cron trigger (will be added in Phase 4)
+# [triggers]
+# crons = ["0 */6 * * *"]

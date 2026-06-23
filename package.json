@@ -1,0 +1,26 @@
+{
+  "name": "andy-burnham-yet",
+  "version": "1.0.0",
+  "description": "Is Andy Burnham the UK Prime Minister yet? - A satirical newspaper front page",
+  "main": "src/worker.js",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "tail": "wrangler tail"
+  },
+  "devDependencies": {
+    "wrangler": "^4.104.0"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "cloudflare",
+    "workers",
+    "wikidata",
+    "perplexity",
+    "anthropic"
+  ],
+  "author": "",
+  "license": "MIT"
+}

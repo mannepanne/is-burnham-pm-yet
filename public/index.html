@@ -1,0 +1,1160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Burnham Question - The Daily Non-Forecast</title>
+
+  <!-- Google Fonts - Libre Caslon Display, Georgia, Space Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Libre+Caslon+Display&family=Georgia:ital,wght@0,400;0,700;1,400&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+
+  <style>
+    /* ========================================
+       CSS Variables - Color Palette
+       ======================================== */
+    :root {
+      /* Core colors */
+      --paper: #F2EEE4;
+      --ink: #17130D;
+      --ink-light: #4a4438;
+      --amber: #DB8E1A;
+      --amber-dark: #B07A17; /* Darkened for WCAG AA on small text */
+      --amber-light: #c9c1b1;
+      --green: #2F7D33;
+      --muted: #7a6f5d;
+      --muted-light: #9a9082;
+      --muted-lighter: #c9c1b1;
+      --archive-red: #9a3b2e;
+      --white: #FFFFFF;
+      
+      /* Derived colors */
+      --bg: var(--paper);
+      --text: var(--ink);
+      --border: var(--ink);
+      --divider: rgba(23, 19, 13, 0.35);
+      --divider-light: rgba(23, 19, 13, 0.25);
+      --divider-lighter: rgba(23, 19, 13, 0.3);
+    }
+
+    /* ========================================
+       Reset and Base
+       ======================================== */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: #E8E4DB;
+      color: var(--text);
+      font-family: Georgia, serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      line-height: 1.4;
+    }
+
+    body.loading #page {
+      opacity: 0.5;
+    }
+
+    /* ========================================
+       Typography
+       ======================================== */
+    h1, h2, h3, h4, h5, h6 {
+      font-family: 'Libre Caslon Display', Georgia, serif;
+      font-weight: 400;
+      letter-spacing: -0.01em;
+    }
+
+    .space-mono {
+      font-family: 'Space Mono', monospace;
+      font-weight: 400;
+    }
+
+    .space-mono-bold {
+      font-family: 'Space Mono', monospace;
+      font-weight: 700;
+    }
+
+    /* ========================================
+       Layout
+       ======================================== */
+    #page {
+      max-width: 1100px;
+      width: 100%;
+      background: var(--white);
+      border-radius: 2px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+      overflow: hidden;
+      transition: opacity 0.3s ease;
+    }
+
+    /* ========================================
+       Masthead
+       ======================================== */
+    #masthead {
+      background: var(--paper);
+      color: var(--ink);
+      padding: 22px 34px 0;
+    }
+
+    .masthead-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      font: 400 11px/1.3 Georgia, serif;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      color: var(--ink-light);
+      margin-bottom: 12px;
+    }
+
+    .masthead-top span {
+      display: block;
+    }
+
+    #masthead-title {
+      font: 400 60px/0.88 'Libre Caslon Display', Georgia, serif;
+      text-align: center;
+      margin: 12px 0 10px;
+      letter-spacing: -0.01em;
+      color: var(--ink);
+    }
+
+    .masthead-dateline {
+      display: flex;
+      justify-content: space-between;
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      padding: 6px 34px;
+      margin: 0 -34px;
+      font: 400 11px/1 Georgia, serif;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--ink);
+    }
+
+    /* ========================================
+       Hero Section
+       ======================================== */
+    #hero {
+      padding: 46px 34px 34px;
+      text-align: center;
+      background-image: radial-gradient(circle, rgba(23, 19, 13, 0.10) 1px, transparent 1.4px);
+      background-size: 6px 6px;
+    }
+
+    .hero-question {
+      font: 400 13px/1 Georgia, serif;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 18px;
+    }
+
+    .hero-answer {
+      font: 400 158px/0.8 'Libre Caslon Display', Georgia, serif;
+      letter-spacing: -0.03em;
+      color: var(--ink);
+    }
+
+    .hero-answer-yes .hero-period {
+      color: var(--green);
+    }
+
+    .hero-answer-not-yet .hero-period {
+      color: var(--amber);
+    }
+
+    .hero-subtitle {
+      font: italic 400 24px/1.3 Georgia, serif;
+      color: var(--ink-light);
+      margin-top: 18px;
+    }
+
+    .hero-status {
+      font: 700 10px/1 'Space Mono', monospace;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--muted-light);
+      margin-top: 28px;
+    }
+
+    /* ========================================
+       Content Section (Odds Desk + Papers Panel)
+       ======================================== */
+    #content {
+      display: flex;
+      gap: 40px;
+      border-top: 3px double var(--border);
+      padding: 28px 34px 36px;
+      background: var(--white);
+    }
+
+    /* Odds Desk */
+    #odds-desk {
+      flex: 1;
+      min-width: 0;
+      padding-top: 9px;
+    }
+
+    .odds-label {
+      font: 400 11px/1 Georgia, serif;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 9px;
+      margin-bottom: 25px;
+    }
+
+    .odds-percentage {
+      font: 400 84px/0.84 'Libre Caslon Display', Georgia, serif;
+      color: var(--ink);
+    }
+
+    .odds-percentage.odds-placeholder {
+      color: var(--muted-lighter);
+    }
+
+    .odds-caption {
+      font: italic 400 14px/1.4 Georgia, serif;
+      color: var(--ink-light);
+      margin: 8px 0 18px;
+    }
+
+    .odds-caption.odds-placeholder {
+      color: var(--muted-light);
+    }
+
+    .odds-bar {
+      height: 11px;
+      border: 1.5px solid var(--border);
+      background: var(--white);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .odds-bar-placeholder {
+      border-color: var(--muted-lighter);
+    }
+
+    .odds-bar-fill {
+      height: 100%;
+      position: absolute;
+      left: 0;
+      top: 0;
+    }
+
+    .odds-bar-fill.amber {
+      background: var(--amber);
+    }
+
+    .odds-bar-fill.green {
+      background: var(--green);
+    }
+
+    .odds-disclaimer {
+      font: 400 11px/1.5 Georgia, serif;
+      color: var(--muted);
+      margin-top: 14px;
+      border-top: 1px solid var(--divider);
+      padding-top: 12px;
+    }
+
+    /* Papers Panel */
+    #papers-panel {
+      flex: 1.6;
+      min-width: 0;
+    }
+
+    #papers-panel > h2 {
+      font: 700 18px/1.1 Georgia, serif;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+      border-bottom: 3px solid var(--border);
+      padding-bottom: 9px;
+      margin: 0;
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+    }
+
+    .archive-badge {
+      font: 700 9px/1 'Space Mono', monospace;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--archive-red);
+      background: transparent;
+      border: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    #articles {
+      padding-top: 16px;
+    }
+
+    /* Article Cards */
+    .article-card {
+      padding: 16px 0;
+      border-bottom: 1px solid var(--divider);
+    }
+
+    .article-card:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+
+    .article-meta {
+      display: flex;
+      justify-content: space-between;
+      font: 700 10px/1 'Space Mono', monospace;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .article-title {
+      font: 400 21px/1.2 'Libre Caslon Display', Georgia, serif;
+      color: var(--ink);
+      margin: 0 0 11px;
+    }
+
+    .article-verdict {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 7px;
+      border: 1.5px solid var(--border);
+      padding: 4px 9px;
+    }
+
+    .article-verdict.noting {
+      border-color: var(--divider);
+    }
+
+    /* Verdict Labels */
+    .verdict-label {
+      font: 700 9px/1 'Space Mono', monospace;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .verdict-fixating {
+      color: var(--amber-dark); /* Darkened for WCAG AA */
+    }
+
+    .verdict-probing {
+      color: var(--green);
+    }
+
+    .verdict-noting {
+      color: var(--muted);
+    }
+
+    .verdict-caption {
+      font: italic 400 13px Georgia, serif;
+      color: var(--ink);
+    }
+
+    .article-card.noting .verdict-caption {
+      color: var(--ink-light);
+    }
+
+    /* Curation note for judge fallback */
+    .curation-note {
+      font: 400 11px/1.5 Georgia, serif;
+      color: var(--muted-light);
+      margin-top: 6px;
+      font-style: italic;
+    }
+
+    /* ========================================
+       Footer
+       ======================================== */
+    #page-footer {
+      background: var(--ink);
+      color: var(--paper);
+      padding: 13px 34px;
+      display: flex;
+      justify-content: space-between;
+      font: 400 11px/1.3 'Space Mono', monospace;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    /* ========================================
+       Animations
+       ======================================== */
+    @keyframes jitMemo {
+      0%, 100% {
+        transform: translateY(0);
+      }
+      50% {
+        transform: translateY(-2px);
+      }
+    }
+
+    @keyframes softpulse {
+      0%, 100% {
+        opacity: 1;
+      }
+      50% {
+        opacity: 0.6;
+      }
+    }
+
+    @keyframes loadingPulse {
+      0%, 100% {
+        opacity: 0.4;
+      }
+      50% {
+        opacity: 1;
+      }
+    }
+
+    /* Fixating card animation */
+    .article-card.fixating,
+    .article-card.fixating-on {
+      animation: jitMemo 1.3s linear infinite;
+    }
+
+    .article-card.fixating:nth-child(2) {
+      animation-delay: 0.2s;
+    }
+
+    .article-card.fixating:nth-child(3) {
+      animation-delay: 0.4s;
+    }
+
+    /* Respect prefers-reduced-motion */
+    @media (prefers-reduced-motion: reduce) {
+      * {
+        animation: none !important;
+      }
+    }
+
+    /* ========================================
+       Loading State Placeholders
+       ======================================== */
+    .loading-placeholder {
+      animation: softpulse 1.6s ease-in-out infinite;
+    }
+
+    .loading-bar {
+      height: 11px;
+      border: 1.5px solid var(--muted-lighter);
+      background: var(--white);
+      animation: softpulse 1.6s ease-in-out infinite;
+    }
+
+    .loading-article {
+      padding: 18px 0;
+      border-bottom: 1px solid var(--divider);
+      animation: softpulse 1.6s ease-in-out infinite;
+    }
+
+    .loading-article:last-child {
+      border-bottom: none;
+    }
+
+    .loading-block {
+      height: 11px;
+      background: #e0d9ca;
+      margin-bottom: 13px;
+      border-radius: 0;
+    }
+
+    .loading-block.width-30 { width: 30%; }
+    .loading-block.width-34 { width: 34%; }
+    .loading-block.width-38 { width: 38%; }
+    .loading-block.width-55 { width: 55%; }
+    .loading-block.width-64 { width: 64%; }
+    .loading-block.width-70 { width: 70%; }
+    .loading-block.width-80 { width: 80%; }
+    .loading-block.width-88 { width: 88%; }
+    .loading-block.width-92 { width: 92%; }
+
+    .loading-block.height-20 {
+      height: 20px;
+      margin-bottom: 8px;
+    }
+
+    /* ========================================
+       Responsive Design
+       ======================================== */
+    @media (max-width: 900px) {
+      #content {
+        flex-direction: column;
+        gap: 20px;
+      }
+
+      #odds-desk {
+        flex: none;
+      }
+
+      #papers-panel {
+        flex: none;
+      }
+
+      #masthead-dateline {
+        flex-direction: column;
+        gap: 6px;
+        align-items: center;
+      }
+
+      .hero-answer {
+        font-size: 120px;
+        line-height: 0.85;
+      }
+
+      .odds-percentage {
+        font-size: 64px;
+        line-height: 0.85;
+      }
+    }
+
+    @media (max-width: 600px) {
+      #page {
+        padding: 10px;
+      }
+
+      #masthead {
+        padding: 16px 20px 0;
+      }
+
+      .masthead-top {
+        font-size: 9px;
+        line-height: 1.2;
+      }
+
+      #masthead-title {
+        font-size: 40px;
+        line-height: 0.9;
+        margin: 8px 0;
+      }
+
+      #hero {
+        padding: 30px 20px;
+      }
+
+      .hero-question {
+        font-size: 11px;
+        letter-spacing: 0.18em;
+        margin-bottom: 12px;
+      }
+
+      .hero-answer {
+        font-size: 80px;
+        line-height: 0.9;
+      }
+
+      .hero-subtitle {
+        font-size: 18px;
+        line-height: 1.2;
+        margin-top: 12px;
+      }
+
+      .hero-status {
+        font-size: 8px;
+        letter-spacing: 0.12em;
+        margin-top: 18px;
+      }
+
+      #content {
+        padding: 16px 20px;
+        gap: 16px;
+      }
+
+      .odds-label {
+        font-size: 9px;
+        letter-spacing: 0.12em;
+        padding-bottom: 5px;
+        margin-bottom: 10px;
+      }
+
+      .odds-percentage {
+        font-size: 48px;
+        line-height: 0.85;
+      }
+
+      .odds-caption {
+        font-size: 12px;
+        margin: 6px 0 12px;
+      }
+
+      .odds-disclaimer {
+        font-size: 9px;
+        letter-spacing: 0.05em;
+        margin-top: 10px;
+        padding-top: 8px;
+      }
+
+      #papers-panel > h2 {
+        font-size: 14px;
+        letter-spacing: 0.01em;
+        padding-bottom: 6px;
+      }
+
+      .article-meta {
+        font-size: 8px;
+        letter-spacing: 0.08em;
+        margin-bottom: 6px;
+      }
+
+      .article-title {
+        font-size: 16px;
+        line-height: 1.15;
+        margin: 0 0 8px;
+      }
+
+      .verdict-label {
+        font-size: 7px;
+        letter-spacing: 0.1em;
+      }
+
+      .verdict-caption {
+        font-size: 11px;
+      }
+
+      .article-verdict {
+        padding: 3px 6px;
+        gap: 4px;
+      }
+
+      .curation-note {
+        font-size: 9px;
+        letter-spacing: 0.05em;
+        margin-top: 4px;
+        padding-top: 8px;
+      }
+
+      #page-footer {
+        padding: 10px 16px;
+        font-size: 9px;
+        line-height: 1.2;
+        flex-direction: column;
+        gap: 4px;
+        text-align: center;
+      }
+    }
+
+    /* ========================================
+       Utility Classes
+       ======================================== */
+    .hide {
+      display: none !important;
+    }
+
+    .text-center {
+      text-align: center;
+    }
+  </style>
+</head>
+<body class="loading">
+  <div id="page">
+    <!-- Masthead -->
+    <header id="masthead">
+      <div class="masthead-top">
+        <span>No. 3,471<br>Late Final</span>
+        <span style="text-align: center;">Est. 2026 · A Public Service</span>
+        <span style="text-align: right;">Price:<br>Your Attention</span>
+      </div>
+      <h1 id="masthead-title">The Burnham Question</h1>
+      <div class="masthead-dateline">
+        <span id="masthead-date">Loading...</span>
+        <span>The Daily Non-Forecast</span>
+        <span>Weather: <span id="masthead-weather">Unsettled, indefinitely</span></span>
+      </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section id="hero">
+      <div class="hero-question">Is Andy Burnham the Prime Minister?</div>
+      <div class="hero-answer" id="hero-answer">
+        <span id="hero-answer-text">Loading</span><span class="hero-period" id="hero-period"></span>
+      </div>
+      <div class="hero-subtitle" id="hero-subtitle"></div>
+      <div class="hero-status" id="hero-status"></div>
+    </section>
+
+    <!-- Content Section -->
+    <section id="content">
+      <!-- Odds Desk -->
+      <div id="odds-desk">
+        <div class="odds-label">The Odds Desk</div>
+        <div class="odds-percentage" id="odds-percentage">—%</div>
+        <div class="odds-caption" id="odds-caption">…still being totted up by the desk.</div>
+        <div class="odds-bar loading-bar" id="odds-bar"></div>
+        <div class="odds-disclaimer">Press estimate, not a forecast. Possibly not even a guess.</div>
+      </div>
+
+      <!-- Papers Panel -->
+      <div id="papers-panel">
+        <h2>
+          <span>Meanwhile, the papers say…</span>
+          <span class="archive-badge" id="archive-badge"></span>
+        </h2>
+        <div id="articles">
+          <!-- Loading placeholders -->
+          <div class="loading-article">
+            <div class="loading-block width-34 loading-placeholder"></div>
+            <div class="loading-block width-88 loading-placeholder loading-block.height-20"></div>
+            <div class="loading-block width-64 loading-placeholder loading-block.height-20"></div>
+          </div>
+          <div class="loading-article">
+            <div class="loading-block width-30 loading-placeholder"></div>
+            <div class="loading-block width-92 loading-placeholder loading-block.height-20"></div>
+            <div class="loading-block width-55 loading-placeholder loading-block.height-20"></div>
+          </div>
+          <div class="loading-article">
+            <div class="loading-block width-38 loading-placeholder"></div>
+            <div class="loading-block width-80 loading-placeholder loading-block.height-20"></div>
+            <div class="loading-block width-70 loading-placeholder loading-block.height-20"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer id="page-footer">
+      <span id="pm-counter">Prime Ministers since the 2016 referendum: <span id="pm-count">6</span> · this counter is load-bearing</span>
+      <span id="footer-status">Scoreboard checking…</span>
+    </footer>
+  </div>
+
+  <script>
+    // ========================================
+    // Configuration
+    // ========================================
+    const BASE_PM_COUNT = 6;
+    const WIKIDATA_QUERY = `
+      SELECT ?pmLabel WHERE {
+        wd:Q145 wdt:P6 ?pm .
+        SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+      }
+    `;
+
+    // ========================================
+    // State Management
+    // ========================================
+    const states = {
+      LOADING: 'loading',
+      NOT_YET: 'not_yet',
+      YES: 'yes',
+      JUDGE_FAILED: 'judge_failed',
+      OFFLINE: 'offline'
+    };
+
+    let currentState = states.LOADING;
+    let pmCount = BASE_PM_COUNT;
+
+    // ========================================
+    // Canned Fallback Trio (from handoff)
+    // ========================================
+    const CANNED_TRIO = [
+      {
+        outlet: 'The Daily Broadsheet',
+        date: '21 Jun',
+        title: 'Inside Burnham\'s anorak: what the zip tells us about the soul of Labour',
+        verdict: 'fixating',
+        caption: 'the coat'
+      },
+      {
+        outlet: 'Westminster Lobby Wire',
+        date: '20 Jun',
+        title: 'Mood in the tearoom \'fizzy\', says man who was not in the tearoom',
+        verdict: 'fixating',
+        caption: 'one source\'s choice of adjective'
+      },
+      {
+        outlet: 'The Northern Question',
+        date: '19 Jun',
+        title: 'Could the 07:42 tram to Altrincham hold the key to Number 10?',
+        verdict: 'fixating',
+        caption: 'a tram timetable'
+      }
+    ];
+
+    // ========================================
+    // Utility Functions
+    // ========================================
+    function formatDate(date) {
+      const options = {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+      };
+      return date.toLocaleDateString('en-GB', options);
+    }
+
+    function encodeSPARQL(query) {
+      return encodeURIComponent(query);
+    }
+
+    function isBurnhamPM(labels) {
+      return labels.some(label => 
+        label && label.toLowerCase().includes('burnham')
+      );
+    }
+
+    // ========================================
+    // Data Fetching
+    // ========================================
+    async function fetchWikidataAnswer() {
+      try {
+        const encodedQuery = encodeSPARQL(WIKIDATA_QUERY);
+        const url = `https://query.wikidata.org/sparql?format=json&query=${encodedQuery}`;
+        
+        const response = await fetch(url, {
+          headers: {
+            'Accept': 'application/sparql-results+json'
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error(`Wikidata HTTP error: ${response.status}`);
+        }
+
+        const data = await response.json();
+        const labels = data.results?.bindings?.map(b => b.pmLabel?.value) || [];
+        return isBurnhamPM(labels);
+      } catch (error) {
+        console.error('Wikidata fetch error:', error);
+        return false; // Default to Not yet on any error
+      }
+    }
+
+    async function fetchCommentary() {
+      try {
+        const response = await fetch('/api/commentary');
+        if (!response.ok) {
+          throw new Error(`API error: ${response.status}`);
+        }
+        return await response.json();
+      } catch (error) {
+        console.error('Commentary API error:', error);
+        return null;
+      }
+    }
+
+    // ========================================
+    // Render Functions
+    // ========================================
+    function getVerdictLabel(verdict) {
+      switch(verdict) {
+        case 'fixating':
+        case 'fixating-on':
+          return 'Fixating on:';
+        case 'probing':
+          return 'Probing';
+        case 'noting':
+          return 'Noted';
+        default:
+          return 'Noted';
+      }
+    }
+
+    function getBarColor(verdict) {
+      if (verdict === 'fixating' || verdict === 'fixating-on') return 'amber';
+      if (verdict === 'probing') return 'green';
+      return null;
+    }
+
+    function renderHero(isYes) {
+      const heroAnswerEl = document.getElementById('hero-answer');
+      const heroAnswerTextEl = document.getElementById('hero-answer-text');
+      const heroPeriodEl = document.getElementById('hero-period');
+      const heroSubtitleEl = document.getElementById('hero-subtitle');
+      const heroStatusEl = document.getElementById('hero-status');
+
+      if (isYes) {
+        pmCount = BASE_PM_COUNT + 1;
+        heroAnswerTextEl.textContent = 'Yes';
+        heroPeriodEl.textContent = '.';
+        heroPeriodEl.style.color = 'var(--green)';
+        heroSubtitleEl.textContent = '(finally. you may sit down.)';
+        heroStatusEl.textContent = 'Scoreboard last checked: just now · confirmed via Wikidata Q145 · P6';
+        currentState = states.YES;
+      } else {
+        pmCount = BASE_PM_COUNT;
+        heroAnswerTextEl.textContent = 'Not yet';
+        heroPeriodEl.textContent = '.';
+        heroPeriodEl.style.color = 'var(--amber)';
+        heroSubtitleEl.textContent = '(but ask again in a month)';
+        heroStatusEl.textContent = 'Scoreboard last checked: just now · the default answer is usually correct';
+        currentState = states.NOT_YET;
+      }
+
+      updatePMCount();
+      updateFooterStatus();
+    }
+
+    function updatePMCount() {
+      const pmCountEl = document.getElementById('pm-count');
+      if (pmCountEl) {
+        pmCountEl.textContent = pmCount;
+      }
+    }
+
+    function updateFooterStatus() {
+      const footerStatusEl = document.getElementById('footer-status');
+      if (footerStatusEl) {
+        footerStatusEl.textContent = currentState === states.LOADING 
+          ? 'Scoreboard checking…' 
+          : 'Scoreboard checked: just now';
+      }
+    }
+
+    function renderOddsDesk(data) {
+      const percentageEl = document.getElementById('odds-percentage');
+      const captionEl = document.getElementById('odds-caption');
+      const barEl = document.getElementById('odds-bar');
+
+      if (!data || data.probability_pct === null || data.probability_pct === undefined) {
+        percentageEl.textContent = '—%';
+        percentageEl.classList.add('odds-placeholder');
+        captionEl.textContent = '…still being totted up by the desk.';
+        captionEl.classList.add('odds-placeholder');
+        barEl.className = 'odds-bar loading-bar';
+        barEl.innerHTML = '';
+        return;
+      }
+
+      const probability = Math.min(100, Math.max(0, Math.round(data.probability_pct)));
+      const caption = data.one_line || '…that he\'s behind the famous door by September.';
+
+      percentageEl.textContent = probability + '%';
+      percentageEl.classList.remove('odds-placeholder');
+      
+      captionEl.textContent = caption;
+      captionEl.classList.remove('odds-placeholder');
+
+      barEl.className = 'odds-bar';
+      const barColor = probability > 0 ? (probability === 100 ? 'green' : 'amber') : '';
+      barEl.innerHTML = `<div class="odds-bar-fill ${barColor}" style="width: ${probability}%"></div>`;
+    }
+
+    function renderArticles(articles) {
+      const articlesEl = document.getElementById('articles');
+      const archiveBadgeEl = document.getElementById('archive-badge');
+
+      // Clear existing
+      articlesEl.innerHTML = '';
+      if (archiveBadgeEl) archiveBadgeEl.textContent = '';
+
+      if (!articles || articles.length === 0) {
+        renderCannedTrio();
+        return;
+      }
+
+      articles.forEach(article => {
+        const card = document.createElement('article');
+        card.className = `article-card ${article.verdict}`;
+        
+        const barColor = getBarColor(article.verdict);
+        const label = getVerdictLabel(article.verdict);
+        const caption = article.caption || '';
+
+        card.innerHTML = `
+          <div class="article-meta">
+            <span class="article-outlet">${article.outlet || 'Unknown'}</span>
+            <span class="article-date">${article.date || ''}</span>
+          </div>
+          <h3 class="article-title">${article.title || 'Untitled'}</h3>
+          <span class="article-verdict">
+            <span class="verdict-label verdict-${article.verdict}">${label}</span>
+            <span class="verdict-caption">${caption}</span>
+          </span>
+        `;
+
+        articlesEl.appendChild(card);
+      });
+
+      // Apply jitter animation to fixating cards
+      document.querySelectorAll('.article-card.fixating, .article-card.fixating-on').forEach(card => {
+        card.classList.add('fixating');
+      });
+    }
+
+    function renderCannedTrio() {
+      const articlesEl = document.getElementById('articles');
+      const archiveBadgeEl = document.getElementById('archive-badge');
+
+      // Clear existing content
+      articlesEl.innerHTML = '';
+      
+      if (archiveBadgeEl) {
+        archiveBadgeEl.textContent = 'From the archive';
+      }
+
+      CANNED_TRIO.forEach((article, index) => {
+        const card = document.createElement('article');
+        card.className = `article-card ${article.verdict}`;
+        
+        const label = getVerdictLabel(article.verdict);
+
+        card.innerHTML = `
+          <div class="article-meta">
+            <span class="article-outlet">${article.outlet}</span>
+            <span class="article-date">${article.date}</span>
+          </div>
+          <h3 class="article-title">${article.title}</h3>
+          <span class="article-verdict">
+            <span class="verdict-label verdict-${article.verdict}">${label}</span>
+            <span class="verdict-caption">${article.caption}</span>
+          </span>
+        `;
+
+        articlesEl.appendChild(card);
+      });
+
+      // Apply jitter animation
+      document.querySelectorAll('.article-card.fixating').forEach((card, index) => {
+        card.classList.add('fixating');
+        if (index === 1) card.style.animationDelay = '0.2s';
+        if (index === 2) card.style.animationDelay = '0.4s';
+      });
+    }
+
+    function renderJudgeFailed(data) {
+      const articlesEl = document.getElementById('articles');
+      const archiveBadgeEl = document.getElementById('archive-badge');
+
+      // Clear existing content
+      articlesEl.innerHTML = '';
+      
+      if (archiveBadgeEl) archiveBadgeEl.textContent = '';
+
+      if (!data || !data.articles || data.articles.length === 0) {
+        renderCannedTrio();
+        return;
+      }
+
+      const article = data.articles[0];
+      const card = document.createElement('article');
+      card.className = `article-card ${article.verdict || 'noting'}`;
+      
+      const label = getVerdictLabel(article.verdict || 'noting');
+      const caption = article.caption || 'a recent update on the question';
+
+      card.innerHTML = `
+        <div class="article-meta">
+          <span class="article-outlet">${article.outlet || 'Unknown'}</span>
+          <span class="article-date">${article.date || ''}</span>
+        </div>
+        <h3 class="article-title">${article.title || 'Untitled'}</h3>
+        <span class="article-verdict">
+          <span class="verdict-label verdict-${article.verdict || 'noting'}">${label}</span>
+          <span class="verdict-caption">${caption}</span>
+        </span>
+      `;
+
+      articlesEl.appendChild(card);
+    }
+
+    // ========================================
+    // Dynamic Date in Masthead
+    // ========================================
+    function updateMastheadDate() {
+      const dateEl = document.getElementById('masthead-date');
+      if (dateEl) {
+        dateEl.textContent = formatDate(new Date());
+      }
+    }
+
+    // ========================================
+    // Main Initialization
+    // ========================================
+    async function init() {
+      // Set up dynamic elements
+      updateMastheadDate();
+
+      // Check for forced YES state
+      const urlParams = new URLSearchParams(window.location.search);
+      const forceYes = urlParams.get('force') === 'yes';
+
+      // Check for forced NO state
+      const forceNo = urlParams.get('force') === 'no';
+
+      // Check for judge fallback simulation
+      const simulateJudgeFail = urlParams.get('simulate') === 'judge-fail';
+
+      // Check for offline simulation
+      const simulateOffline = urlParams.get('simulate') === 'offline';
+
+      // Determine hero answer
+      let isYes;
+      if (forceYes) {
+        isYes = true;
+      } else if (forceNo) {
+        isYes = false;
+      } else {
+        isYes = await fetchWikidataAnswer();
+      }
+
+      renderHero(isYes);
+
+      // Determine state and render commentary
+      if (simulateOffline) {
+        // Offline state - show canned trio
+        renderOddsDesk(null);
+        renderCannedTrio();
+        currentState = states.OFFLINE;
+      } else if (simulateJudgeFail) {
+        // Judge failed state - show single noting card with mock data
+        renderOddsDesk({ probability_pct: 24, one_line: '...that he\'s behind the famous door by September.' });
+        renderJudgeFailed({
+          articles: [{
+            outlet: 'Westminster Lobby Wire',
+            date: '20 Jun',
+            title: 'Burnham addresses party members at constituency event',
+            verdict: 'noting',
+            caption: 'a recent update on the question'
+          }]
+        });
+        currentState = states.JUDGE_FAILED;
+      } else {
+        // Normal operation - fetch from API
+        const commentary = await fetchCommentary();
+
+        if (commentary) {
+          if (commentary.articles && commentary.articles.length > 0) {
+            renderOddsDesk(commentary);
+            renderArticles(commentary.articles);
+          } else {
+            // Empty pool
+            renderOddsDesk(commentary);
+            renderCannedTrio();
+          }
+        } else {
+          // API unreachable
+          renderOddsDesk(null);
+          renderCannedTrio();
+          currentState = states.OFFLINE;
+        }
+      }
+
+      // Remove loading state
+      document.body.classList.remove('loading');
+    }
+
+    // ========================================
+    // Initialize on DOM load
+    // ========================================
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', init);
+    } else {
+      init();
+    }
+  </script>
+</body>
+</html>
