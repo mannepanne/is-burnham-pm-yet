@@ -1146,81 +1146,85 @@
     // Main Initialization
     // ========================================
     async function init() {
-      // Set up dynamic elements
-      updateMastheadDate();
-      setHeroLoading();
+      try {
+        // Set up dynamic elements
+        updateMastheadDate();
+        setHeroLoading();
 
-      // Check for forced YES state
-      const urlParams = new URLSearchParams(window.location.search);
-      const forceYes = urlParams.get('force') === 'yes';
+        // Check for forced YES state
+        const urlParams = new URLSearchParams(window.location.search);
+        const forceYes = urlParams.get('force') === 'yes';
 
-      // Check for forced NO state
-      const forceNo = urlParams.get('force') === 'no';
+        // Check for forced NO state
+        const forceNo = urlParams.get('force') === 'no';
 
-      // Check for judge fallback simulation
-      const simulateJudgeFail = urlParams.get('simulate') === 'judge-fail';
+        // Check for judge fallback simulation
+        const simulateJudgeFail = urlParams.get('simulate') === 'judge-fail';
 
-      // Check for offline simulation
-      const simulateOffline = urlParams.get('simulate') === 'offline';
+        // Check for offline simulation
+        const simulateOffline = urlParams.get('simulate') === 'offline';
 
-      // Determine hero answer
-      let isYes;
-      let isForced = false;
-      
-      if (forceYes) {
-        isYes = true;
-        isForced = true;
-      } else if (forceNo) {
-        isYes = false;
-        isForced = true;
-      } else {
-        isYes = await fetchWikidataAnswer();
-      }
-
-      renderHero(isYes, isForced);
-
-      // Determine state and render commentary
-      if (simulateOffline) {
-        // Offline state - show canned trio
-        renderOddsDesk(null);
-        renderCannedTrio();
-        currentState = states.OFFLINE;
-      } else if (simulateJudgeFail) {
-        // Judge failed state - show single noting card with mock data
-        renderOddsDesk({ probability_pct: 24, one_line: '...that he\'s behind the famous door by September.' });
-        renderJudgeFailed({
-          articles: [{
-            outlet: 'Westminster Lobby Wire',
-            date: '20 Jun',
-            title: 'Burnham addresses party members at constituency event',
-            verdict: 'noting',
-            caption: 'a recent update on the question'
-          }]
-        });
-        currentState = states.JUDGE_FAILED;
-      } else {
-        // Normal operation - fetch from API
-        const commentary = await fetchCommentary();
-
-        if (commentary) {
-          if (commentary.articles && commentary.articles.length > 0) {
-            renderOddsDesk(commentary);
-            renderArticles(commentary.articles);
-          } else {
-            // Empty pool
-            renderOddsDesk(commentary);
-            renderCannedTrio();
-          }
+        // Determine hero answer
+        let isYes;
+        let isForced = false;
+        
+        if (forceYes) {
+          isYes = true;
+          isForced = true;
+        } else if (forceNo) {
+          isYes = false;
+          isForced = true;
         } else {
-          // API unreachable
+          isYes = await fetchWikidataAnswer();
+        }
+
+        renderHero(isYes, isForced);
+
+        // Determine state and render commentary
+        if (simulateOffline) {
+          // Offline state - show canned trio
           renderOddsDesk(null);
           renderCannedTrio();
           currentState = states.OFFLINE;
-        }
-      }
+        } else if (simulateJudgeFail) {
+          // Judge failed state - show single noting card with mock data
+          renderOddsDesk({ probability_pct: 24, one_line: '...that he\'s behind the famous door by September.' });
+          renderJudgeFailed({
+            articles: [{
+              outlet: 'Westminster Lobby Wire',
+              date: '20 Jun',
+              title: 'Burnham addresses party members at constituency event',
+              verdict: 'noting',
+              caption: 'a recent update on the question'
+            }]
+          });
+          currentState = states.JUDGE_FAILED;
+        } else {
+          // Normal operation - fetch from API
+          const commentary = await fetchCommentary();
 
-      // Remove loading state
-      document.body.classList.remove('loading');
+          if (commentary) {
+            if (commentary.articles && commentary.articles.length > 0) {
+              renderOddsDesk(commentary);
+              renderArticles(commentary.articles);
+            } else {
+              // Empty pool
+              renderOddsDesk(commentary);
+              renderCannedTrio();
+            }
+          } else {
+            // API unreachable
+            renderOddsDesk(null);
+            renderCannedTrio();
+            currentState = states.OFFLINE;
+          }
+        }
+      } catch (error) {
+        console.error('Initialization error:', error);
+      } finally {
+        // Always remove loading state, even on error
+        document.body.classList.remove('loading');
+      }
     }
 
     // ========================================
