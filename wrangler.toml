@@ -5,11 +5,10 @@ compatibility_date = "2026-06-23"
 [assets]
 directory = "./public"
 
-# KV namespace for caching (will be added in Phase 4)
-# [[kv_namespaces]]
-# binding = "COMMENTARY_CACHE"
-# id = "<to-be-created>"
+[[kv_namespaces]]
+binding = "COMMENTARY_CACHE"
+id = "c2d82888344c4c6897d04993eb08733a"
 
-# Cron trigger (will be added in Phase 4)
+# Cron trigger (optional upgrade)
 # [triggers]
 # crons = ["0 */6 * * *"]
