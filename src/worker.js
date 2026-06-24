@@ -154,10 +154,182 @@ async function runPipeline(env) {
       .filter(Boolean)
       .slice(0, PANEL_SIZE);
 
-    return { ...meta, articles };
+    // Stage 3: Full-text refinement (optional upgrade)
+    const refinedArticles = await refineWithFullText(articles, env);
+
+    return { ...meta, articles: refinedArticles };
   } catch (e) {
     console.error("Pipeline error:", e);
     return empty;
+  }
+}
+
+// Helper: Extract readable text from HTML
+function extractText(html) {
+  // Use DOMParser if available (Workers runtime)
+  if (typeof DOMParser !== 'undefined') {
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+      // Remove script, style, nav, footer, header elements
+      const selectorsToRemove = ['script', 'style', 'nav', 'footer', 'header', 'aside', 'iframe', 'noscript'];
+      selectorsToRemove.forEach(selector => {
+        const elements = doc.querySelectorAll(selector);
+        elements.forEach(el => el.remove());
+      });
+      return doc.body.textContent
+        .replace(/\s+/g, ' ')
+        .trim()
+        .substring(0, 1500); // Cap at ~1500 chars
+    } catch (e) {
+      // Fall through to regex approach
+    }
+  }
+  
+  // Regex-based fallback for environments without DOMParser
+  // Remove script/style tags and their content
+  let text = html
+    .replace(/<script[^>]*>.*?<\/script>/gsi, '')
+    .replace(/<style[^>]*>.*?<\/style>/gsi, '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .substring(0, 1500);
+  
+  return text;
+}
+
+// Helper: Fetch article URL with timeout
+async function fetchArticle(url, timeout = 5000) {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeout);
+  
+  try {
+    const response = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; AndyBurnhamYet/1.0; +https://andyburnhamyet.hultberg.org/)',
+        'Accept': 'text/html',
+      },
+    });
+    clearTimeout(id);
+    
+    if (!response.ok) {
+      return null;
+    }
+    
+    const html = await response.text();
+    return html;
+  } catch (e) {
+    clearTimeout(id);
+    return null;
+  }
+}
+
+// Stage 3: Refine verdicts with full article text
+async function refineWithFullText(articles, env) {
+  if (!articles || articles.length === 0) {
+    return articles;
+  }
+
+  // Fetch full text for each article
+  const texts = await Promise.all(
+    articles.map(async (a, index) => {
+      const html = await fetchArticle(a.url);
+      if (!html) return null;
+      return {
+        index: index,
+        text: extractText(html),
+        url: a.url,
+      };
+    })
+  );
+
+  // Filter out failed fetches
+  const successful = texts.filter(t => t && t.text && t.text.length > 50);
+  
+  if (successful.length === 0) {
+    // All fetches failed, return original articles
+    return articles;
+  }
+
+  // Build refinement prompt
+  const refinementPrompt = `You are refining article verdicts and captions based on the FULL TEXT.
+Each article below has already been judged based on its snippet. Now review the
+full text and confirm or refine the verdict and caption. Be more precise now that
+you have the complete article.
+
+For each article, return:
+- index: the original index
+- verdict: keep or change from the original (probing/fixating/noting)
+- caption: refined caption based on full text (max 8 words)
+
+Only refine if the full text changes your assessment. If the snippet-based
+judgment still holds, keep the original verdict and caption.
+
+Articles to refine:`;
+
+  const articleContexts = successful.map((t, i) => {
+    const original = articles[t.index];
+    return `\n\nArticle ${t.index}: "${original.title}" (${original.outlet})\nURL: ${t.url}\nOriginal verdict: ${original.verdict}\nOriginal caption: "${original.caption}"\nFull text:\n${t.text.substring(0, 2000)}`;
+  }).join('');
+
+  try {
+    const r = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "x-api-key": env.ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: JUDGE_MODEL,
+        max_tokens: 400,
+        system: refinementPrompt + articleContexts + '\n\nRespond with ONLY minified JSON: {"refined":[{"index":number,"verdict":"probing"|"fixating"|"noting","caption":string}]}',
+        messages: [],
+      }),
+    });
+
+    const data = await r.json();
+    let text = (data.content ?? [])
+      .filter((b) => b.type === "text")
+      .map((b) => b.text)
+      .join("")
+      .replace(/```json|```/g, "")
+      .trim();
+
+    const VERDICTS = new Set(["probing", "fixating", "noting"]);
+    
+    try {
+      const parsed = JSON.parse(text);
+      const refined = parsed.refined ?? [];
+      
+      // Apply refinements to articles
+      const refinedArticles = [...articles];
+      for (const ref of refined) {
+        if (
+          Number.isInteger(ref.index) && 
+          ref.index >= 0 && 
+          ref.index < refinedArticles.length &&
+          VERDICTS.has(ref.verdict)
+        ) {
+          refinedArticles[ref.index] = {
+            ...refinedArticles[ref.index],
+            verdict: ref.verdict,
+            caption: ref.caption ?? refinedArticles[ref.index].caption,
+          };
+        }
+      }
+      
+      return refinedArticles;
+    } catch {
+      // Parse failed, return original
+      return articles;
+    }
+  } catch (e) {
+    console.error("Full-text refinement error:", e);
+    // Fallback to original articles
+    return articles;
   }
 }
 
@@ -165,17 +337,22 @@ async function runPipeline(env) {
 async function handleCommentary(env) {
   const empty = { probability_pct: null, one_line: "", articles: [] };
 
-  try {
-    // Read from cache first
-    const hit = await env.COMMENTARY_CACHE.get(CACHE_KEY, "json");
-    if (hit) return Response.json(hit);
+  // Helper to check if KV is available (not in local dev without KV)
+  const kv = env.COMMENTARY_CACHE;
 
-    // Cache miss: run pipeline on-demand as fallback
+  try {
+    // Read from cache first (if KV is available)
+    if (kv) {
+      const hit = await kv.get(CACHE_KEY, "json");
+      if (hit) return Response.json(hit);
+    }
+
+    // Cache miss or no KV: run pipeline on-demand as fallback
     const result = await runPipeline(env);
     
-    // Cache the result if we got articles
-    if (result.articles?.length) {
-      await env.COMMENTARY_CACHE.put(CACHE_KEY, JSON.stringify(result), {
+    // Cache the result if we got articles and KV is available
+    if (kv && result.articles?.length) {
+      await kv.put(CACHE_KEY, JSON.stringify(result), {
         expirationTtl: TTL_SECONDS,
       });
     }
