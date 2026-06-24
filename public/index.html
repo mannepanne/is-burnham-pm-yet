@@ -962,12 +962,6 @@
       }
     }
 
-    function getBarColor(verdict) {
-      if (verdict === 'fixating' || verdict === 'fixating-on') return 'amber';
-      if (verdict === 'probing') return 'green';
-      return null;
-    }
-
     function renderHero(isYes, isForced = false) {
       const heroAnswerEl = document.getElementById('hero-answer');
       const heroAnswerTextEl = document.getElementById('hero-answer-text');
@@ -1062,12 +1056,56 @@
       barEl.innerHTML = `<div class="odds-bar-fill ${barColor}" style="width: ${probability}%"></div>`;
     }
 
+    // Build an article card from DOM nodes, assigning every untrusted field
+    // via textContent so values from the Perplexity pool (outlet/title/date)
+    // and Claude (caption) can never be parsed as HTML. verdict is validated
+    // server-side against an allowlist, so it is safe in the class name.
+    function createArticleCard(article) {
+      const verdict = article.verdict || 'noting';
+
+      const card = document.createElement('article');
+      card.className = `article-card ${verdict}`;
+
+      const meta = document.createElement('div');
+      meta.className = 'article-meta';
+
+      const outlet = document.createElement('span');
+      outlet.className = 'article-outlet';
+      outlet.textContent = article.outlet || 'Unknown';
+
+      const date = document.createElement('span');
+      date.className = 'article-date';
+      date.textContent = article.date || '';
+
+      meta.append(outlet, date);
+
+      const title = document.createElement('h3');
+      title.className = 'article-title';
+      title.textContent = article.title || 'Untitled';
+
+      const verdictWrap = document.createElement('span');
+      verdictWrap.className = 'article-verdict';
+
+      const label = document.createElement('span');
+      label.className = `verdict-label verdict-${verdict}`;
+      label.textContent = getVerdictLabel(verdict);
+
+      const caption = document.createElement('span');
+      caption.className = 'verdict-caption';
+      caption.textContent = article.caption || '';
+
+      verdictWrap.append(label, caption);
+
+      card.append(meta, title, verdictWrap);
+      return card;
+    }
+
     function renderArticles(articles) {
       const articlesEl = document.getElementById('articles');
       const archiveBadgeEl = document.getElementById('archive-badge');
 
       // Clear existing
-      articlesEl.innerHTML = '';
+      articlesEl.replaceChildren();
       if (archiveBadgeEl) archiveBadgeEl.textContent = '';
 
       if (!articles || articles.length === 0) {
@@ -1076,26 +1114,7 @@
       }
 
       articles.forEach(article => {
-        const card = document.createElement('article');
-        card.className = `article-card ${article.verdict}`;
-        
-        const barColor = getBarColor(article.verdict);
-        const label = getVerdictLabel(article.verdict);
-        const caption = article.caption || '';
-
-        card.innerHTML = `
-          <div class="article-meta">
-            <span class="article-outlet">${article.outlet || 'Unknown'}</span>
-            <span class="article-date">${article.date || ''}</span>
-          </div>
-          <h3 class="article-title">${article.title || 'Untitled'}</h3>
-          <span class="article-verdict">
-            <span class="verdict-label verdict-${article.verdict}">${label}</span>
-            <span class="verdict-caption">${caption}</span>
-          </span>
-        `;
-
-        articlesEl.appendChild(card);
+        articlesEl.appendChild(createArticleCard(article));
       });
 
       // Apply jitter animation to fixating cards
@@ -1109,31 +1128,14 @@
       const archiveBadgeEl = document.getElementById('archive-badge');
 
       // Clear existing content
-      articlesEl.innerHTML = '';
-      
+      articlesEl.replaceChildren();
+
       if (archiveBadgeEl) {
         archiveBadgeEl.textContent = 'From the archive';
       }
 
-      CANNED_TRIO.forEach((article, index) => {
-        const card = document.createElement('article');
-        card.className = `article-card ${article.verdict}`;
-        
-        const label = getVerdictLabel(article.verdict);
-
-        card.innerHTML = `
-          <div class="article-meta">
-            <span class="article-outlet">${article.outlet}</span>
-            <span class="article-date">${article.date}</span>
-          </div>
-          <h3 class="article-title">${article.title}</h3>
-          <span class="article-verdict">
-            <span class="verdict-label verdict-${article.verdict}">${label}</span>
-            <span class="verdict-caption">${article.caption}</span>
-          </span>
-        `;
-
-        articlesEl.appendChild(card);
+      CANNED_TRIO.forEach(article => {
+        articlesEl.appendChild(createArticleCard(article));
       });
 
       // Apply jitter animation
@@ -1149,8 +1151,8 @@
       const archiveBadgeEl = document.getElementById('archive-badge');
 
       // Clear existing content
-      articlesEl.innerHTML = '';
-      
+      articlesEl.replaceChildren();
+
       if (archiveBadgeEl) archiveBadgeEl.textContent = '';
 
       if (!data || !data.articles || data.articles.length === 0) {
@@ -1159,25 +1161,11 @@
       }
 
       const article = data.articles[0];
-      const card = document.createElement('article');
-      card.className = `article-card ${article.verdict || 'noting'}`;
-      
-      const label = getVerdictLabel(article.verdict || 'noting');
-      const caption = article.caption || 'a recent update on the question';
-
-      card.innerHTML = `
-        <div class="article-meta">
-          <span class="article-outlet">${article.outlet || 'Unknown'}</span>
-          <span class="article-date">${article.date || ''}</span>
-        </div>
-        <h3 class="article-title">${article.title || 'Untitled'}</h3>
-        <span class="article-verdict">
-          <span class="verdict-label verdict-${article.verdict || 'noting'}">${label}</span>
-          <span class="verdict-caption">${caption}</span>
-        </span>
-      `;
-
-      articlesEl.appendChild(card);
+      articlesEl.appendChild(createArticleCard({
+        ...article,
+        verdict: article.verdict || 'noting',
+        caption: article.caption || 'a recent update on the question',
+      }));
     }
 
     // ========================================
