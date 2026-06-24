@@ -2,7 +2,11 @@
 
 This directory contains all specifications for the "Is Andy Burnham the UK Prime Minister yet?" project.
 
-**Note:** Completed phases (1-3) have been archived to `SPECIFICATIONS/ARCHIVE/2026-06-24-Phase-1-3/` with full implementation details and completion summaries.
+**Note:** All phases (1-5) have been completed and archived:
+- Phases 1-3: `SPECIFICATIONS/ARCHIVE/2026-06-24-Phase-1-3/`
+- Phases 4-5: `SPECIFICATIONS/ARCHIVE/2026-06-24-Phase-4-5/`
+
+Each archive includes full implementation details and completion summaries.
 
 ---
 
@@ -16,13 +20,14 @@ SPECIFICATIONS/
 │   └── project-outline.md                 # Project outline with all decisions
 │
 ├── ARCHIVE/
-│   └── 2026-06-24-Phase-1-3/             # Completed phases 1-3 (see below)
-│       ├── PHASE-1-foundation.md         # ✅ Phase 1: Project Setup & Static Page
-│       ├── PHASE-2-wikidata.md           # ✅ Phase 2: Wikidata Integration
-│       └── PHASE-3-worker-api.md         # ✅ Phase 3: Worker API & Commentary Pipeline
-│
-├── PHASE-4-caching.md                    # Phase 4: Caching with Cron Trigger
-└── PHASE-5-deployment.md                 # Phase 5: Testing, Polish & Deployment
+│   ├── 2026-06-24-Phase-1-3/             # Completed phases 1-3
+│   │   ├── PHASE-1-foundation.md         # ✅ Phase 1: Project Setup & Static Page
+│   │   ├── PHASE-2-wikidata.md           # ✅ Phase 2: Wikidata Integration
+│   │   └── PHASE-3-worker-api.md         # ✅ Phase 3: Worker API & Commentary Pipeline
+│   │
+│   └── 2026-06-24-Phase-4-5/             # Completed phases 4-5
+│       ├── PHASE-4-caching.md            # ✅ Phase 4: Caching with Cron Trigger
+│       └── PHASE-5-deployment.md         # ✅ Phase 5: Testing, Polish & Deployment
 ```
 
 ---
@@ -64,8 +69,8 @@ Use the todo list or update this file to track phase completion:
 - [x] Phase 1: Foundation (Completed 2026-06-24 - archived)
 - [x] Phase 2: Wikidata Integration (Completed 2026-06-24 - archived)
 - [x] Phase 3: Worker API (Completed 2026-06-24 - archived)
-- [ ] Phase 4: Caching
-- [ ] Phase 5: Deployment
+- [x] Phase 4: Caching (Completed 2026-06-24 - archived)
+- [x] Phase 5: Deployment (Completed 2026-06-24 - archived)
 
 ---
 
