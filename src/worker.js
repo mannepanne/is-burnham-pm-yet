@@ -105,6 +105,10 @@ export default {
       return handleCommentary(env);
     }
 
+    if (url.pathname === "/api/refresh") {
+      return handleRefresh(env, url);
+    }
+
     // Non-asset, non-API path: 404
     return new Response("Not found", { status: 404 });
   },
@@ -361,6 +365,34 @@ async function handleCommentary(env) {
   } catch (e) {
     console.error("Commentary error:", e);
     return Response.json(empty); // status 200 — degrade quietly
+  }
+}
+
+// Handle manual refresh with secret protection
+async function handleRefresh(env, url) {
+  // Require secret key to prevent abuse
+  const secret = url.searchParams.get('key');
+  if (secret !== env.REFRESH_SECRET) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
+  const empty = { probability_pct: null, one_line: "", articles: [] };
+
+  try {
+    const result = await runPipeline(env);
+    
+    // Cache the result if we got articles and KV is available
+    const kv = env.COMMENTARY_CACHE;
+    if (kv && result.articles?.length) {
+      await kv.put(CACHE_KEY, JSON.stringify(result), {
+        expirationTtl: TTL_SECONDS,
+      });
+    }
+
+    return Response.json(result);
+  } catch (e) {
+    console.error("Refresh error:", e);
+    return Response.json(empty);
   }
 }
 
