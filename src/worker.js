@@ -1,5 +1,5 @@
 // Cloudflare Worker for Andy Burnham PM Tracker
-// Handles /api/commentary endpoint
+// Handles /api/commentary endpoint with cron-triggered cache refresh
 
 // Configuration
 const JUDGE_MODEL = "claude-haiku-4-5";
@@ -71,7 +71,7 @@ Respond with ONLY minified JSON, no prose, no markdown fences:
 1 to 3 entries, in the order they should appear; each i must reference an
 input candidate.`;
 
-// Main handler
+// Main handler with both fetch and scheduled triggers
 export default {
   async fetch(req, env) {
     const url = new URL(req.url);
@@ -83,17 +83,23 @@ export default {
     // Non-asset, non-API path: 404
     return new Response("Not found", { status: 404 });
   },
+
+  // Cron-triggered cache refresh
+  async scheduled(event, env, ctx) {
+    const result = await runPipeline(env);
+    if (result.articles?.length) {
+      await env.COMMENTARY_CACHE.put(CACHE_KEY, JSON.stringify(result), {
+        expirationTtl: TTL_SECONDS,
+      });
+    }
+  },
 };
 
-// Handle /api/commentary endpoint
-async function handleCommentary(env) {
+// Run the full pipeline: Perplexity -> Claude -> curate
+async function runPipeline(env) {
   const empty = { probability_pct: null, one_line: "", articles: [] };
 
   try {
-    // Check cache first
-    const hit = await env.COMMENTARY_CACHE.get(CACHE_KEY, "json");
-    if (hit) return Response.json(hit);
-
     // Stage 1: Perplexity retrieves a representative pool
     const found = await retrievePool(env);
     const meta = { 
@@ -102,7 +108,7 @@ async function handleCommentary(env) {
     };
     
     if (!found.pool?.length) {
-      return Response.json({ ...empty, ...meta });
+      return { ...empty, ...meta };
     }
 
     // Stage 2: Claude judges the pool and curates up to 3
@@ -123,9 +129,26 @@ async function handleCommentary(env) {
       .filter(Boolean)
       .slice(0, PANEL_SIZE);
 
-    const result = { ...meta, articles };
+    return { ...meta, articles };
+  } catch (e) {
+    console.error("Pipeline error:", e);
+    return empty;
+  }
+}
+
+// Handle /api/commentary endpoint - reads from cache, fallback to on-demand
+async function handleCommentary(env) {
+  const empty = { probability_pct: null, one_line: "", articles: [] };
+
+  try {
+    // Read from cache first
+    const hit = await env.COMMENTARY_CACHE.get(CACHE_KEY, "json");
+    if (hit) return Response.json(hit);
+
+    // Cache miss: run pipeline on-demand as fallback
+    const result = await runPipeline(env);
     
-    // Cache real results
+    // Cache the result if we got articles
     if (result.articles?.length) {
       await env.COMMENTARY_CACHE.put(CACHE_KEY, JSON.stringify(result), {
         expirationTtl: TTL_SECONDS,
