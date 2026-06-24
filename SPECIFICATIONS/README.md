@@ -2,6 +2,8 @@
 
 This directory contains all specifications for the "Is Andy Burnham the UK Prime Minister yet?" project.
 
+**Note:** Completed phases (1-3) have been archived to `SPECIFICATIONS/ARCHIVE/2026-06-24-Phase-1-3/` with full implementation details and completion summaries.
+
 ---
 
 ## Document Hierarchy
@@ -13,9 +15,12 @@ SPECIFICATIONS/
 │   ├── design-andy-burnham-yet-handoff.html # Visual source of truth
 │   └── project-outline.md                 # Project outline with all decisions
 │
-├── PHASE-1-foundation.md                 # Phase 1: Project Setup & Static Page
-├── PHASE-2-wikidata.md                   # Phase 2: Wikidata Integration
-├── PHASE-3-worker-api.md                 # Phase 3: Worker API & Commentary Pipeline
+├── ARCHIVE/
+│   └── 2026-06-24-Phase-1-3/             # Completed phases 1-3 (see below)
+│       ├── PHASE-1-foundation.md         # ✅ Phase 1: Project Setup & Static Page
+│       ├── PHASE-2-wikidata.md           # ✅ Phase 2: Wikidata Integration
+│       └── PHASE-3-worker-api.md         # ✅ Phase 3: Worker API & Commentary Pipeline
+│
 ├── PHASE-4-caching.md                    # Phase 4: Caching with Cron Trigger
 └── PHASE-5-deployment.md                 # Phase 5: Testing, Polish & Deployment
 ```
@@ -56,9 +61,9 @@ SPECIFICATIONS/
 
 Use the todo list or update this file to track phase completion:
 
-- [ ] Phase 1: Foundation
-- [ ] Phase 2: Wikidata Integration
-- [ ] Phase 3: Worker API
+- [x] Phase 1: Foundation (Completed 2026-06-24 - archived)
+- [x] Phase 2: Wikidata Integration (Completed 2026-06-24 - archived)
+- [x] Phase 3: Worker API (Completed 2026-06-24 - archived)
 - [ ] Phase 4: Caching
 - [ ] Phase 5: Deployment
 
