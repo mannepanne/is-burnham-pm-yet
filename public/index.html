@@ -420,6 +420,16 @@
       }
     }
 
+    @keyframes ellipsisPulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    .loading-ellipsis {
+      display: inline-block;
+      animation: ellipsisPulse 1s infinite;
+    }
+
     /* Fixating card animation */
     .article-card.fixating,
     .article-card.fixating-on {
@@ -810,10 +820,46 @@
       );
     }
 
+    const LOADING_WORDS = [
+      'Checking',
+      'Asking the oracle',
+      'Cogitating',
+      'Pondering',
+      'Consulting the scoreboard',
+      'Verifying',
+      'Confirming',
+      'Deliberating',
+      'Ruminating',
+      'Musing',
+      'Examining',
+      'Investigating',
+      'Divining',
+      'Probing',
+      'Scrutinizing',
+      'Evaluating',
+      'Assessing',
+      'Deciphering',
+      'Weighing'
+    ];
+
+    function getRandomLoadingWord() {
+      const index = Math.floor(Math.random() * LOADING_WORDS.length);
+      return LOADING_WORDS[index];
+    }
+
     function setHeroLoading() {
       const heroStatusEl = document.getElementById('hero-status');
+      const heroAnswerTextEl = document.getElementById('hero-answer-text');
+      const heroPeriodEl = document.getElementById('hero-period');
+      
       if (heroStatusEl) {
         heroStatusEl.textContent = 'Checking the scoreboard…';
+      }
+      if (heroAnswerTextEl) {
+        heroAnswerTextEl.innerHTML = getRandomLoadingWord() + '<span class="loading-ellipsis">…</span>';
+      }
+      if (heroPeriodEl) {
+        heroPeriodEl.textContent = '';
       }
     }
 
@@ -877,6 +923,7 @@
     }
 
     const COMMENTARY_TIMEOUT = 8000; // 8 seconds timeout for Worker API
+    const MIN_LOADING_TIME = 2000; // Minimum 2 seconds of loading state
 
     async function fetchCommentary() {
       let timeoutId = null;
@@ -1147,6 +1194,16 @@
     // Main Initialization
     // ========================================
     async function init() {
+      const startTime = Date.now();
+      
+      async function ensureMinLoadingTime() {
+        const elapsed = Date.now() - startTime;
+        const remaining = Math.max(0, MIN_LOADING_TIME - elapsed);
+        if (remaining > 0) {
+          await new Promise(resolve => setTimeout(resolve, remaining));
+        }
+      }
+
       try {
         // Set up dynamic elements
         updateMastheadDate();
@@ -1179,6 +1236,16 @@
           isYes = await fetchWikidataAnswer();
         }
 
+        // Fetch commentary data
+        let commentary = null;
+        if (!simulateOffline && !simulateJudgeFail) {
+          commentary = await fetchCommentary();
+        }
+
+        // Ensure minimum loading time before rendering anything
+        await ensureMinLoadingTime();
+
+        // Now render everything after the delay
         renderHero(isYes, isForced);
 
         // Determine state and render commentary
@@ -1201,9 +1268,7 @@
           });
           currentState = states.JUDGE_FAILED;
         } else {
-          // Normal operation - fetch from API
-          const commentary = await fetchCommentary();
-
+          // Normal operation
           if (commentary) {
             if (commentary.articles && commentary.articles.length > 0) {
               renderOddsDesk(commentary);
@@ -1222,6 +1287,8 @@
         }
       } catch (error) {
         console.error('Initialization error:', error);
+        // Ensure minimum loading time even on error
+        await ensureMinLoadingTime();
       } finally {
         // Always remove loading state, even on error
         document.body.classList.remove('loading');
