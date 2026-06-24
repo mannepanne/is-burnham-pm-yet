@@ -9,6 +9,5 @@ directory = "./public"
 binding = "COMMENTARY_CACHE"
 id = "c2d82888344c4c6897d04993eb08733a"
 
-# Cron trigger (optional upgrade)
-# [triggers]
-# crons = ["0 */6 * * *"]
+[triggers]
+crons = ["0 */6 * * *"]
