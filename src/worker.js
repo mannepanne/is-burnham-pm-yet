@@ -22,23 +22,31 @@ articles, each with an index i, a title, an outlet, and a short neutral snippet
 
 STEP 1 — Judge how each candidate TREATS the subject. One of three verdicts:
 - "probing": engages with what actually matters — what Burnham intends to do in
-office, the mechanics or legitimacy of a mid-term transition, the political or
-policy stakes, or a genuinely new angle or argument.
-- "fixating": dwells on froth — clothes, food, haircut, who he travels with,
-security-detail optics, "swept in by helicopter without an election" process
-theatre, personality colour, or recycled trivia dressed up as analysis.
-- "noting": neither clearly substantive nor clearly trivial — a straight,
-unremarkable update. Use this honestly; it is the correct home for forgettable
-coverage, and you must NOT promote such a piece to "fixating" just to get a joke
-or to "probing" just to seem balanced.
-Judge the treatment, not merely the topic: a thoughtful piece on whether it is
-legitimate to take office mid-term is "probing"; a snide jab about the helicopter
-is "fixating", even though both touch the same event.
+  office, the mechanics or legitimacy of a mid-term transition, the political or
+  policy stakes, or a genuinely new angle or argument.
+- "fixating": dwells on froth, OR inflates a mundane event into drama, OR hangs a
+  succession story on a tangential hook. Examples: clothes, food, haircut, who he
+  travels with, security-detail optics, "swept in by helicopter without an
+  election" process theatre, personality colour, recycled trivia dressed up as
+  analysis — AND breathless intrigue framing (a routine transition meeting sold as
+  a "secret meeting", "showdown", "crisis talks", or who-met-whom drama) — AND
+  pieces that use an unrelated angle (a foreign leader, a celebrity spat, a stray
+  quote) as the lens on his prospects rather than engaging with them.
+- "noting": neither substantive nor inflated — a genuinely flat, factual update,
+  reported straight (e.g. "Burnham confirms he will stand"). Use this honestly,
+  but do NOT use it as a polite escape hatch: if the outlet dresses a non-event up
+  as intrigue, that is "fixating", not "noting". And never promote a forgettable
+  piece to "fixating" just to get a joke, or to "probing" just to seem balanced.
+Judge the TREATMENT, not merely the topic. The same underlying event splits by
+how it's handled: a transition meeting reported plainly is "noting"; the same
+meeting sold as a "secret" rendezvous is "fixating". A thoughtful piece on the
+legitimacy of taking office mid-term is "probing"; a snide helicopter jab is
+"fixating".
 
 STEP 2 — Select 1 to 3 candidates for the panel (ALWAYS at least one), optimising
 for:
 - a faithful reflection of the pool — the panel should mirror the real character
-of the coverage, not an exaggerated version of it;
+  of the coverage, not an exaggerated version of it;
 - outlet diversity — avoid multiple pieces from the same publication;
 - no near-duplicates — if several cover the same angle, keep the strongest one;
 - the clearest example of each type you include.
@@ -47,24 +55,41 @@ representative piece and give it the "noting" verdict — list it, don't mock it
 
 PRINCIPLES — read carefully, they define the site's integrity:
 - Reflect, don't hunt. You are NOT looking for the worst or silliest articles.
-Report what is being said; only when what is being said is trivial do you say
-so. Never inflate, exaggerate, or invent froth, and never twist a snippet to
-make a piece look more foolish than it is.
+  Report what is being said; only when what is being said is trivial do you say
+  so. Never inflate, exaggerate, or invent froth, and never twist a snippet to
+  make a piece look more foolish than it is.
 - Honest over rigid. The press often fixates more than it probes, so the panel
-will frequently lean that way — commonly around two "fixating" to one "probing".
-That is an observation about the coverage, NOT a target to hit.
+  will frequently lean that way — commonly around two "fixating" to one "probing".
+  That is an observation about the coverage, NOT a target to hit. If a
+  week is mostly substantive, show more "probing"; if it is dull, "noting" is
+  fine; if it is all froth, show "fixating". Mirror the pool you were given.
 - "probing" must genuinely appear when a piece earns it; reflexive cynicism is a
-failure. Equally, never award "probing" to a weak piece just to balance the
-panel.
+  failure. Equally, never award "probing" to a weak piece just to balance the
+  panel.
 - Judge only what each snippet supports. Invent nothing.
 
 STEP 3 — For each SELECTED article, write a caption of at most 8 words:
 - "probing": serious and precise — name the substantive thing it engages with.
-- "fixating": tongue-in-cheek — name the trivial thing it obsesses over. Dry wit,
-not cruelty; the humour is in the accuracy.
+- "fixating": sharp and scathing — expose WHY the fixation is absurd, don't just
+  name it. Real bite is welcome. Aim it squarely at the coverage's choices and
+  framing — the daft news judgement, the inflated drama, the irrelevant hook —
+  never at anyone's character, appearance, or protected traits, and never as a
+  partisan verdict on a real person. The funniest captions catch the gap between
+  the breathless treatment and the trivial substance.
 - "noting": a plain, neutral few words describing what the piece is — no wit, no
-scorn, no praise. Always write a short factual descriptor (e.g. "Routine
-conference-season profile."); never leave it blank.
+  scorn, no praise. Always write a short factual descriptor (e.g. "Routine
+  conference-season profile."); never leave it blank.
+
+CALIBRATION — real examples with the verdict and caption to aim for. Match this
+bar; do not reuse these captions verbatim.
+- "Analysis: Everything points to Burnham becoming PM within weeks" (BBC)
+  → "probing": "Party mechanics and a realistic transition timeline."
+- "Andy Burnham holds secret meeting with outgoing PM Keir Starmer" (BBC)
+  → "fixating": "A diary appointment, reported as espionage." (a routine handover
+  meeting inflated into 'secret' intrigue — Westminster theatre, not news.)
+- "Andy Burnham, likely the UK's next PM, has been critical of President Trump"
+  (CBS) → "fixating": "Criticising Trump, somehow spun into a liability." (the
+  story's relevance hangs on a tangential foreign hook, not on his prospects.)
 
 Respond with ONLY minified JSON, no prose, no markdown fences:
 {"selected":[{"i":number,"verdict":"probing"|"fixating"|"noting","caption":string}]}
