@@ -1,9 +1,10 @@
 # Phase 4: Caching - Cron Trigger Implementation
 
-> **Status:** Ready for implementation  
+> **Status:** ✅ Completed (2026-06-24)
 > **Priority:** High  
 > **Depends on:** Phase 1, 2, 3  
 > **Estimated effort:** 0.5-1 session
+> **Actual effort:** ~0.5 session
 
 ---
 
@@ -190,30 +191,30 @@ async function runPipeline(env) {
 ## Testing Checklist
 
 ### KV Tests
-- [ ] KV namespace created successfully
-- [ ] KV namespace ID configured in wrangler.toml
-- [ ] `wrangler dev` can access the KV namespace locally
-- [ ] Production Worker can access KV namespace
+- [x] KV namespace created successfully
+- [x] KV namespace ID configured in wrangler.toml
+- [x] `wrangler dev` can access the KV namespace locally
+- [x] Production Worker can access KV namespace
 
 ### Cron Tests
-- [ ] Cron trigger configured in wrangler.toml
-- [ ] Cron expression `0 */6 * * *` is correct (every 6 hours)
-- [ ] Cron trigger works in production (Cloudflare dashboard shows scheduled events)
-- [ ] Manual test: temporarily change cron to run in 2 minutes, verify cache is rebuilt
+- [x] Cron trigger configured in wrangler.toml
+- [x] Cron expression `0 */6 * * *` is correct (every 6 hours)
+- [x] Cron trigger works in production (Cloudflare dashboard shows scheduled events)
+- [x] Manual test: temporarily change cron to run in 2 minutes, verify cache is rebuilt
 
 ### Cache Behavior Tests
-- [ ] First request after deploy → cache miss, pipeline runs, result cached
-- [ ] Second request within TTL → cache hit, pipeline doesn't run
-- [ ] Request after TTL expires → cache miss, pipeline runs
-- [ ] Cache key versioning works (change to `commentary:v2`, verify old cache not used)
-- [ ] Empty/fallback results are NOT cached
-- [ ] Real results (with articles) ARE cached
+- [x] First request after deploy → cache miss, pipeline runs, result cached
+- [x] Second request within TTL → cache hit, pipeline doesn't run
+- [x] Request after TTL expires → cache miss, pipeline runs
+- [x] Cache key versioning works (change to `commentary:v2`, verify old cache not used)
+- [x] Empty/fallback results are NOT cached
+- [x] Real results (with articles) ARE cached
 
 ### API Call Verification
-- [ ] Monitor production Worker logs
-- [ ] Verify APIs called only on cron schedule (not per-request)
-- [ ] Verify traffic spike doesn't cause duplicate API calls
-- [ ] Verify lazy build-on-miss works (first request after deploy before first cron)
+- [x] Monitor production Worker logs
+- [x] Verify APIs called only on cron schedule (not per-request)
+- [x] Verify traffic spike doesn't cause duplicate API calls
+- [x] Verify lazy build-on-miss works (first request after deploy before first cron)
 
 ---
 
@@ -351,10 +352,10 @@ async function handleCommentary(req, env) {
 ## Dependencies for Next Phase
 
 Phase 5 (Testing & Deployment) depends on:
-- [ ] KV namespace created and configured
-- [ ] Cron trigger configured
-- [ ] Cache behavior verified
-- [ ] Pipeline still works correctly with caching layer
+- [x] KV namespace created and configured
+- [x] Cron trigger configured
+- [x] Cache behavior verified
+- [x] Pipeline still works correctly with caching layer
 
 ---
 
@@ -383,3 +384,22 @@ Phase 5 (Testing & Deployment) depends on:
   - News moves slowly for this specific question
   - Long enough to amortize API costs
   - Short enough to stay reasonably fresh
+
+---
+
+## Completion Summary
+
+**Completed:** 2026-06-24
+
+All acceptance criteria met. Key deliverables:
+- KV namespace `COMMENTARY_CACHE` created and configured with ID `c2d82888344c4c6897d04993eb08733a`
+- wrangler.toml updated with KV namespace binding
+- Cron trigger configured: `0 */6 * * *` (every 6 hours at :00 past the hour)
+- Cache TTL: 6 hours (21600 seconds)
+- Cache key: `commentary:v1` with versioning support
+- Read-through cache implemented in fetch handler
+- Lazy build-on-miss fallback for cold starts
+- Only real results (with articles) are cached, not empty/fallback responses
+- Manual refresh endpoint at `/api/refresh` with REFRESH_SECRET protection
+- Full-text article fetching implemented as optional upgrade for better judgment
+- All tests passing
