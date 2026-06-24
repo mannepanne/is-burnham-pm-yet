@@ -741,6 +741,9 @@
         SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
       }
     `;
+    const WIKIDATA_TIMEOUT = 10000; // 10 seconds timeout
+    const WIKIDATA_RETRY_DELAY = 3000; // 3 seconds between retries
+    const WIKIDATA_MAX_RETRIES = 2; // Max 2 retries
 
     // ========================================
     // State Management
@@ -755,6 +758,7 @@
 
     let currentState = states.LOADING;
     let pmCount = BASE_PM_COUNT;
+    let lastWikidataCheck = null;
 
     // ========================================
     // Canned Fallback Trio (from handoff)
@@ -806,41 +810,89 @@
       );
     }
 
-    // ========================================
-    // Data Fetching
-    // ========================================
-    async function fetchWikidataAnswer() {
-      try {
-        const encodedQuery = encodeSPARQL(WIKIDATA_QUERY);
-        const url = `https://query.wikidata.org/sparql?format=json&query=${encodedQuery}`;
-        
-        const response = await fetch(url, {
-          headers: {
-            'Accept': 'application/sparql-results+json'
-          }
-        });
-
-        if (!response.ok) {
-          throw new Error(`Wikidata HTTP error: ${response.status}`);
-        }
-
-        const data = await response.json();
-        const labels = data.results?.bindings?.map(b => b.pmLabel?.value) || [];
-        return isBurnhamPM(labels);
-      } catch (error) {
-        console.error('Wikidata fetch error:', error);
-        return false; // Default to Not yet on any error
+    function setHeroLoading() {
+      const heroStatusEl = document.getElementById('hero-status');
+      if (heroStatusEl) {
+        heroStatusEl.textContent = 'Checking the scoreboard…';
       }
     }
 
-    async function fetchCommentary() {
+    // ========================================
+    // Data Fetching
+    // ========================================
+    // Helper to add timeout to fetch
+    async function fetchWithTimeout(url, options, timeout) {
+      const controller = new AbortController();
+      const id = setTimeout(() => controller.abort(), timeout);
+      
       try {
-        const response = await fetch('/api/commentary');
+        const response = await fetch(url, {
+          ...options,
+          signal: controller.signal
+        });
+        clearTimeout(id);
+        return response;
+      } catch (error) {
+        clearTimeout(id);
+        throw error;
+      }
+    }
+
+    async function fetchWikidataAnswer() {
+      let lastError = null;
+      
+      for (let attempt = 0; attempt <= WIKIDATA_MAX_RETRIES; attempt++) {
+        try {
+          const encodedQuery = encodeSPARQL(WIKIDATA_QUERY);
+          const url = `https://query.wikidata.org/sparql?format=json&query=${encodedQuery}`;
+          
+          const response = await fetchWithTimeout(url, {
+            headers: {
+              'Accept': 'application/sparql-results+json'
+            }
+          }, WIKIDATA_TIMEOUT);
+
+          if (!response.ok) {
+            throw new Error(`Wikidata HTTP error: ${response.status}`);
+          }
+
+          const data = await response.json();
+          const labels = data.results?.bindings?.map(b => b.pmLabel?.value) || [];
+          lastWikidataCheck = new Date();
+          return isBurnhamPM(labels);
+          
+        } catch (error) {
+          lastError = error;
+          console.warn(`Wikidata fetch attempt ${attempt + 1} failed:`, error);
+          
+          if (attempt < WIKIDATA_MAX_RETRIES) {
+            await new Promise(resolve => setTimeout(resolve, WIKIDATA_RETRY_DELAY));
+          }
+        }
+      }
+      
+      console.error('Wikidata fetch failed after retries:', lastError);
+      lastWikidataCheck = new Date();
+      return false; // Default to Not yet on any error
+    }
+
+    const COMMENTARY_TIMEOUT = 8000; // 8 seconds timeout for Worker API
+
+    async function fetchCommentary() {
+      let timeoutId = null;
+      try {
+        const controller = new AbortController();
+        timeoutId = setTimeout(() => controller.abort(), COMMENTARY_TIMEOUT);
+        
+        const response = await fetch('/api/commentary', { signal: controller.signal });
+        clearTimeout(timeoutId);
+        
         if (!response.ok) {
           throw new Error(`API error: ${response.status}`);
         }
         return await response.json();
       } catch (error) {
+        if (timeoutId) clearTimeout(timeoutId);
         console.error('Commentary API error:', error);
         return null;
       }
@@ -869,7 +921,7 @@
       return null;
     }
 
-    function renderHero(isYes) {
+    function renderHero(isYes, isForced = false) {
       const heroAnswerEl = document.getElementById('hero-answer');
       const heroAnswerTextEl = document.getElementById('hero-answer-text');
       const heroPeriodEl = document.getElementById('hero-period');
@@ -882,7 +934,7 @@
         heroPeriodEl.textContent = '.';
         heroPeriodEl.style.color = 'var(--green)';
         heroSubtitleEl.textContent = '(finally. you may sit down.)';
-        heroStatusEl.textContent = 'Scoreboard last checked: just now · confirmed via Wikidata Q145 · P6';
+        heroStatusEl.textContent = formatScoreboardStatus(true, isForced);
         currentState = states.YES;
       } else {
         pmCount = BASE_PM_COUNT;
@@ -890,12 +942,32 @@
         heroPeriodEl.textContent = '.';
         heroPeriodEl.style.color = 'var(--amber)';
         heroSubtitleEl.textContent = '(but ask again in a month)';
-        heroStatusEl.textContent = 'Scoreboard last checked: just now · the default answer is usually correct';
+        heroStatusEl.textContent = formatScoreboardStatus(false, isForced);
         currentState = states.NOT_YET;
       }
 
       updatePMCount();
       updateFooterStatus();
+    }
+
+    function formatScoreboardStatus(isYes, isForced = false) {
+      if (isForced) {
+        return isYes 
+          ? 'Scoreboard overridden: YES (forced via query param)'
+          : 'Scoreboard overridden: NOT YET (forced via query param)';
+      }
+      if (lastWikidataCheck) {
+        const timeStr = lastWikidataCheck.toLocaleTimeString('en-GB', {
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+        return isYes 
+          ? `Scoreboard last checked: ${timeStr} · confirmed via Wikidata Q145 · P6`
+          : `Scoreboard last checked: ${timeStr} · the default answer is usually correct`;
+      }
+      return isYes 
+        ? 'Scoreboard last checked: just now · confirmed via Wikidata Q145 · P6'
+        : 'Scoreboard last checked: just now · the default answer is usually correct';
     }
 
     function updatePMCount() {
@@ -914,7 +986,7 @@
       }
     }
 
-    function renderOddsDesk(data) {
+    function renderOddsDesk(data, captionOverride = null) {
       const percentageEl = document.getElementById('odds-percentage');
       const captionEl = document.getElementById('odds-caption');
       const barEl = document.getElementById('odds-bar');
@@ -922,7 +994,7 @@
       if (!data || data.probability_pct === null || data.probability_pct === undefined) {
         percentageEl.textContent = '—%';
         percentageEl.classList.add('odds-placeholder');
-        captionEl.textContent = '…still being totted up by the desk.';
+        captionEl.textContent = captionOverride || '…still being totted up by the desk.';
         captionEl.classList.add('odds-placeholder');
         barEl.className = 'odds-bar loading-bar';
         barEl.innerHTML = '';
@@ -1075,76 +1147,85 @@
     // Main Initialization
     // ========================================
     async function init() {
-      // Set up dynamic elements
-      updateMastheadDate();
+      try {
+        // Set up dynamic elements
+        updateMastheadDate();
+        setHeroLoading();
 
-      // Check for forced YES state
-      const urlParams = new URLSearchParams(window.location.search);
-      const forceYes = urlParams.get('force') === 'yes';
+        // Check for forced YES state
+        const urlParams = new URLSearchParams(window.location.search);
+        const forceYes = urlParams.get('force') === 'yes';
 
-      // Check for forced NO state
-      const forceNo = urlParams.get('force') === 'no';
+        // Check for forced NO state
+        const forceNo = urlParams.get('force') === 'no';
 
-      // Check for judge fallback simulation
-      const simulateJudgeFail = urlParams.get('simulate') === 'judge-fail';
+        // Check for judge fallback simulation
+        const simulateJudgeFail = urlParams.get('simulate') === 'judge-fail';
 
-      // Check for offline simulation
-      const simulateOffline = urlParams.get('simulate') === 'offline';
+        // Check for offline simulation
+        const simulateOffline = urlParams.get('simulate') === 'offline';
 
-      // Determine hero answer
-      let isYes;
-      if (forceYes) {
-        isYes = true;
-      } else if (forceNo) {
-        isYes = false;
-      } else {
-        isYes = await fetchWikidataAnswer();
-      }
-
-      renderHero(isYes);
-
-      // Determine state and render commentary
-      if (simulateOffline) {
-        // Offline state - show canned trio
-        renderOddsDesk(null);
-        renderCannedTrio();
-        currentState = states.OFFLINE;
-      } else if (simulateJudgeFail) {
-        // Judge failed state - show single noting card with mock data
-        renderOddsDesk({ probability_pct: 24, one_line: '...that he\'s behind the famous door by September.' });
-        renderJudgeFailed({
-          articles: [{
-            outlet: 'Westminster Lobby Wire',
-            date: '20 Jun',
-            title: 'Burnham addresses party members at constituency event',
-            verdict: 'noting',
-            caption: 'a recent update on the question'
-          }]
-        });
-        currentState = states.JUDGE_FAILED;
-      } else {
-        // Normal operation - fetch from API
-        const commentary = await fetchCommentary();
-
-        if (commentary) {
-          if (commentary.articles && commentary.articles.length > 0) {
-            renderOddsDesk(commentary);
-            renderArticles(commentary.articles);
-          } else {
-            // Empty pool
-            renderOddsDesk(commentary);
-            renderCannedTrio();
-          }
+        // Determine hero answer
+        let isYes;
+        let isForced = false;
+        
+        if (forceYes) {
+          isYes = true;
+          isForced = true;
+        } else if (forceNo) {
+          isYes = false;
+          isForced = true;
         } else {
-          // API unreachable
-          renderOddsDesk(null);
+          isYes = await fetchWikidataAnswer();
+        }
+
+        renderHero(isYes, isForced);
+
+        // Determine state and render commentary
+        if (simulateOffline) {
+          // Offline state - show canned trio
+          renderOddsDesk(null, '…the desk is out. The verdict above stands regardless.');
           renderCannedTrio();
           currentState = states.OFFLINE;
-        }
-      }
+        } else if (simulateJudgeFail) {
+          // Judge failed state - show single noting card with mock data
+          renderOddsDesk({ probability_pct: 24, one_line: '...that he\'s behind the famous door by September.' });
+          renderJudgeFailed({
+            articles: [{
+              outlet: 'Westminster Lobby Wire',
+              date: '20 Jun',
+              title: 'Burnham addresses party members at constituency event',
+              verdict: 'noting',
+              caption: 'a recent update on the question'
+            }]
+          });
+          currentState = states.JUDGE_FAILED;
+        } else {
+          // Normal operation - fetch from API
+          const commentary = await fetchCommentary();
 
-      // Remove loading state
-      document.body.classList.remove('loading');
+          if (commentary) {
+            if (commentary.articles && commentary.articles.length > 0) {
+              renderOddsDesk(commentary);
+              renderArticles(commentary.articles);
+            } else {
+              // Empty pool
+              renderOddsDesk(commentary);
+              renderCannedTrio();
+            }
+          } else {
+            // API unreachable
+            renderOddsDesk(null, '…the desk is out. The verdict above stands regardless.');
+            renderCannedTrio();
+            currentState = states.OFFLINE;
+          }
+        }
+      } catch (error) {
+        console.error('Initialization error:', error);
+      } finally {
+        // Always remove loading state, even on error
+        document.body.classList.remove('loading');
+      }
     }
 
     // ========================================
