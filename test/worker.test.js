@@ -116,11 +116,10 @@ describe('handleCommentary', () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
-  it('runs the pipeline on a cache miss and does not cache an empty result', async () => {
+  it('runs the pipeline on a cache miss and negative-caches an empty result (S-4)', async () => {
     // get() returns null → miss. Perplexity returns an empty pool, so the
     // pipeline short-circuits before the Claude/refinement code and produces
-    // no articles — exercising the miss branch and the "only cache when
-    // articles exist" guard without touching the deferred internals.
+    // no articles — exercising the miss branch and the short negative-cache TTL.
     const put = vi.fn(async () => {});
     const env = {
       COMMENTARY_CACHE: { get: async () => null, put },
@@ -137,7 +136,11 @@ describe('handleCommentary', () => {
     const body = await res.json();
     expect(body.articles).toEqual([]);
     expect(fetchSpy).toHaveBeenCalled(); // pipeline ran on the miss
-    expect(put).not.toHaveBeenCalled(); // empty result is not cached
+    // Empty result is cached, but only briefly so the miss doesn't re-run the
+    // paid pipeline on every request during an empty window.
+    expect(put).toHaveBeenCalledTimes(1);
+    expect(put.mock.calls[0][2].expirationTtl).toBe(120);
+    expect(put.mock.calls[0][2].expirationTtl).toBeLessThan(6 * 60 * 60);
   });
 });
 
@@ -180,7 +183,11 @@ describe('refineWithFullText', () => {
       if (typeof url === 'string' && url.includes('api.anthropic.com')) {
         return { ok: true, json: async () => claudeText(refinementBody) };
       }
-      return { ok: true, text: async () => `<p>${'word '.repeat(60)}</p>` };
+      return {
+        ok: true,
+        headers: { get: () => null }, // no content-length → no size cap
+        text: async () => `<p>${'word '.repeat(60)}</p>`,
+      };
     });
   }
 
@@ -219,6 +226,23 @@ describe('refineWithFullText', () => {
 
     const result = await refineWithFullText(articles, { ANTHROPIC_API_KEY: 'k' });
     expect(result).toEqual(articles);
+  });
+
+  it('never fetches non-public article URLs (S-5 SSRF guard)', async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal('fetch', fetchSpy);
+
+    const unsafe = [
+      { title: 'x', url: 'http://news.example/a', outlet: 'o', verdict: 'noting', caption: 'c' }, // not https
+      { title: 'y', url: 'https://127.0.0.1/admin', outlet: 'o', verdict: 'noting', caption: 'c' }, // loopback
+      { title: 'z', url: 'https://169.254.169.254/latest/meta-data', outlet: 'o', verdict: 'noting', caption: 'c' }, // metadata
+    ];
+
+    const result = await refineWithFullText(unsafe, { ANTHROPIC_API_KEY: 'k' });
+    // None of the unsafe URLs is fetched, so there is no text to refine and the
+    // originals are returned unchanged.
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(result).toEqual(unsafe);
   });
 });
 
