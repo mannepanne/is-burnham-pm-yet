@@ -10,6 +10,9 @@ const NEUTRAL_CAPTION = "A recent update on the question.";
 // KV Cache
 const CACHE_KEY = "commentary:v1";
 const TTL_SECONDS = 6 * 60 * 60; // 6 hours
+// Short TTL for an empty result, so a transient empty window (Perplexity down,
+// parse failure) doesn't re-run the paid pipeline on every on-demand request.
+const NEGATIVE_TTL_SECONDS = 120; // 2 minutes
 
 // Judge prompt
 const JUDGE_PROMPT = `You are the editor of a dry, sardonic site that tracks whether Andy Burnham has
@@ -203,11 +206,42 @@ function extractText(html) {
   return text;
 }
 
+// Helper: only fetch public https:// URLs. The article URLs come from the
+// Perplexity response (not the site operator), so this blocks SSRF-style
+// targets — non-https schemes and loopback / link-local / private hosts.
+const MAX_ARTICLE_BYTES = 2_000_000; // 2 MB cap on a fetched article body
+
+function isPublicHttpsUrl(raw) {
+  let u;
+  try {
+    u = new URL(raw);
+  } catch {
+    return false;
+  }
+  if (u.protocol !== "https:") return false;
+
+  const host = u.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  if (host === "localhost" || host.endsWith(".localhost")) return false;
+  if (host === "0.0.0.0" || host === "::1" || host === "::") return false;
+  if (host === "169.254.169.254") return false; // cloud metadata
+  if (/^127\./.test(host)) return false; // loopback
+  if (/^10\./.test(host)) return false; // private
+  if (/^192\.168\./.test(host)) return false; // private
+  if (/^172\.(1[6-9]|2\d|3[01])\./.test(host)) return false; // private
+  if (/^169\.254\./.test(host)) return false; // link-local
+  if (/^(fe80|fc|fd)/.test(host)) return false; // IPv6 link-local / unique-local
+  return true;
+}
+
 // Helper: Fetch article URL with timeout
 async function fetchArticle(url, timeout = 5000) {
+  if (!isPublicHttpsUrl(url)) {
+    return null;
+  }
+
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeout);
-  
+
   try {
     const response = await fetch(url, {
       signal: controller.signal,
@@ -217,11 +251,17 @@ async function fetchArticle(url, timeout = 5000) {
       },
     });
     clearTimeout(id);
-    
+
     if (!response.ok) {
       return null;
     }
-    
+
+    // Best-effort size cap (content-length may be absent on chunked responses).
+    const declaredLength = Number(response.headers.get("content-length") || 0);
+    if (declaredLength > MAX_ARTICLE_BYTES) {
+      return null;
+    }
+
     const html = await response.text();
     return html;
   } catch (e) {
@@ -359,11 +399,14 @@ async function handleCommentary(env) {
 
     // Cache miss or no KV: run pipeline on-demand as fallback
     const result = await runPipeline(env);
-    
-    // Cache the result if we got articles and KV is available
-    if (kv && result.articles?.length) {
+
+    // Cache the result if KV is available. A full result gets the normal TTL;
+    // an empty result is cached briefly so repeated misses during an empty
+    // window don't each re-run the paid pipeline. (This only runs on a miss,
+    // so it can't clobber an existing good cache entry.)
+    if (kv) {
       await kv.put(CACHE_KEY, JSON.stringify(result), {
-        expirationTtl: TTL_SECONDS,
+        expirationTtl: result.articles?.length ? TTL_SECONDS : NEGATIVE_TTL_SECONDS,
       });
     }
 
