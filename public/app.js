@@ -181,7 +181,14 @@
       return false; // Default to Not yet on any error
     }
 
-    const COMMENTARY_TIMEOUT = 12000; // 12 seconds timeout for Worker API
+    // Worker API timeout. On a cold cache the Worker runs the full pipeline
+    // synchronously: Perplexity retrieval (~15s) → Claude judge → full-text
+    // fetch of the selected articles → a second Claude pass to refine verdicts.
+    // That can approach ~30s, so the client waits up to 30s before falling back
+    // to the canned trio. Warm cache hits return near-instantly, and the cron
+    // keeps the cache warm in production, so the long wait is a rare cold-start
+    // case rather than the norm.
+    const COMMENTARY_TIMEOUT = 30000; // 30 seconds timeout for Worker API
     const MIN_LOADING_TIME = 2000; // Minimum 2 seconds of loading state
 
     async function fetchCommentary() {
