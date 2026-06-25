@@ -2,9 +2,7 @@
 // ABOUT: Verifies createArticleCard escapes untrusted article fields.
 // @vitest-environment happy-dom
 import { describe, it, expect } from 'vitest';
-import { loadInlineScript } from './helpers/load-inline-script.js';
-
-const { createArticleCard } = loadInlineScript();
+import { createArticleCard } from '../public/app.js';
 
 describe('createArticleCard', () => {
   it('renders HTML metacharacters in untrusted fields as inert text (S-1)', () => {
