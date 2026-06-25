@@ -506,5 +506,4 @@ export {
   handleRefresh,
   judgeAndCurate,
   extractText,
-  runPipeline,
 };

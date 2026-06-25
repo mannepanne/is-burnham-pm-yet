@@ -93,7 +93,7 @@ Each test should:
 npm install -D vitest @vitest/coverage-v8
 ```
 
-Configuration in `vitest.config.ts`
+Configuration in `vitest.config.js`
 
 ---
 
@@ -321,4 +321,10 @@ Tests validate **correctness**, but don't guarantee:
 
 ---
 
-**Status:** Template ready - will be updated with actual test patterns as features are implemented
+**Status:** A Vitest suite exists under `test/` — Worker handler tests in the
+node environment (using `global.fetch` stubs via `vi.stubGlobal`) and a
+front-end render guard in the happy-dom environment. Run it with `npm test`
+(or `npm run test:coverage`). `worker.js` line coverage is partial and climbs
+as the remaining pipeline paths gain tests; the generic examples above are
+illustrative and predate this project — they have not yet been reconciled to
+the actual Worker + front-end suite.

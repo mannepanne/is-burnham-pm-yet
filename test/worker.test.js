@@ -18,8 +18,13 @@ function claudeText(text) {
   return { content: [{ type: 'text', text }] };
 }
 
+// Reset spies and any globals (notably `fetch`) between tests. A raw
+// `global.fetch = ...` assignment is NOT undone by restoreAllMocks(), so we
+// install fetch via vi.stubGlobal and clear it with unstubAllGlobals() — this
+// keeps tests order-independent as the suite grows.
 beforeEach(() => {
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 describe('judgeAndCurate', () => {
@@ -29,25 +34,25 @@ describe('judgeAndCurate', () => {
   ];
 
   it('maps a valid selection straight through', async () => {
-    global.fetch = mockFetchJson(
+    vi.stubGlobal('fetch', mockFetchJson(
       claudeText(JSON.stringify({ selected: [{ i: 1, verdict: 'fixating', caption: 'sharp' }] })),
-    );
+    ));
 
     const result = await judgeAndCurate({ ANTHROPIC_API_KEY: 'k' }, pool);
     expect(result).toEqual([{ i: 1, verdict: 'fixating', caption: 'sharp' }]);
   });
 
   it('coerces an out-of-allowlist verdict to "noting"', async () => {
-    global.fetch = mockFetchJson(
+    vi.stubGlobal('fetch', mockFetchJson(
       claudeText(JSON.stringify({ selected: [{ i: 0, verdict: 'banana', caption: 'x' }] })),
-    );
+    ));
 
     const result = await judgeAndCurate({ ANTHROPIC_API_KEY: 'k' }, pool);
     expect(result[0].verdict).toBe('noting');
   });
 
   it('falls back to a single neutral card when the judge reply is unparseable', async () => {
-    global.fetch = mockFetchJson(claudeText('not json at all'));
+    vi.stubGlobal('fetch', mockFetchJson(claudeText('not json at all')));
 
     const result = await judgeAndCurate({ ANTHROPIC_API_KEY: 'k' }, pool);
     expect(result).toHaveLength(1);
@@ -70,9 +75,9 @@ describe('handleRefresh', () => {
 
   it('runs the pipeline when the key matches', async () => {
     // Perplexity returns an empty pool, so no Claude call is made.
-    global.fetch = mockFetchJson({
+    vi.stubGlobal('fetch', mockFetchJson({
       choices: [{ message: { content: JSON.stringify({ probability_pct: 10, one_line: 'x', pool: [] }) } }],
-    });
+    }));
 
     const url = new URL('https://example.org/api/refresh?key=secret');
     const res = await handleRefresh(
@@ -92,14 +97,39 @@ describe('handleCommentary', () => {
     const env = {
       COMMENTARY_CACHE: { get: async () => cached, put: async () => {} },
     };
-    global.fetch = vi.fn(); // must not be called
+    const fetchSpy = vi.fn(); // must not be called
+    vi.stubGlobal('fetch', fetchSpy);
 
     const res = await handleCommentary(env);
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.articles).toHaveLength(1);
     expect(body.probability_pct).toBe(42);
-    expect(global.fetch).not.toHaveBeenCalled();
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('runs the pipeline on a cache miss and does not cache an empty result', async () => {
+    // get() returns null → miss. Perplexity returns an empty pool, so the
+    // pipeline short-circuits before the Claude/refinement code and produces
+    // no articles — exercising the miss branch and the "only cache when
+    // articles exist" guard without touching the deferred internals.
+    const put = vi.fn(async () => {});
+    const env = {
+      COMMENTARY_CACHE: { get: async () => null, put },
+      PERPLEXITY_API_KEY: 'k',
+      ANTHROPIC_API_KEY: 'k',
+    };
+    const fetchSpy = mockFetchJson({
+      choices: [{ message: { content: JSON.stringify({ probability_pct: 5, one_line: 'x', pool: [] }) } }],
+    });
+    vi.stubGlobal('fetch', fetchSpy);
+
+    const res = await handleCommentary(env);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.articles).toEqual([]);
+    expect(fetchSpy).toHaveBeenCalled(); // pipeline ran on the miss
+    expect(put).not.toHaveBeenCalled(); // empty result is not cached
   });
 });
 

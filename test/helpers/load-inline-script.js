@@ -12,6 +12,17 @@ const htmlPath = path.join(here, '..', '..', 'public', 'index.html');
 // strip the DOM-load auto-init block so evaluation has no side effects, and
 // return the functions under test. Function declarations are hoisted, so
 // evaluating the body and returning them by name works without exports.
+//
+// This is a deliberate bridge: it lets the S-1 render guard test the live
+// inline script without prematurely extracting it. Retire it when S-2 extracts
+// the script into a module — at that point import the module directly. Do not
+// add further front-end tests on top of this eval path; wait for the module.
+//
+// The guards below make the string-coupling fail loudly: if the inline-script
+// markers ever drift, the test errors clearly instead of loading the wrong
+// block or silently running init() inside `new Function`.
+const INIT_MARKER = '// Initialize on DOM load';
+
 export function loadInlineScript() {
   const html = fs.readFileSync(htmlPath, 'utf8');
   const match = html.match(/<script>([\s\S]*?)<\/script>/);
@@ -19,7 +30,19 @@ export function loadInlineScript() {
     throw new Error('Could not find the inline application script in index.html');
   }
 
-  const code = match[1].replace(/\/\/ Initialize on DOM load[\s\S]*$/, '');
+  const raw = match[1];
+  if (!raw.includes('function createArticleCard')) {
+    throw new Error(
+      'Extracted inline <script> does not contain createArticleCard — the wrong block was matched; update load-inline-script.js',
+    );
+  }
+  if (!raw.includes(INIT_MARKER)) {
+    throw new Error(
+      `Inline-script init marker "${INIT_MARKER}" not found — the auto-init block may no longer be stripped; update load-inline-script.js`,
+    );
+  }
+
+  const code = raw.replace(new RegExp(`${INIT_MARKER}[\\s\\S]*$`), '');
   const factory = new Function(
     `${code}\n; return { createArticleCard, getVerdictLabel };`,
   );

@@ -10,15 +10,16 @@ describe('createArticleCard', () => {
   it('renders HTML metacharacters in untrusted fields as inert text (S-1)', () => {
     const card = createArticleCard({
       outlet: '<img src=x onerror="window.__xss=1">',
-      date: '21 Jun',
+      date: '<svg onload="window.__xss=1">21 Jun</svg>',
       title: '<script>window.__xss=1</script>',
       verdict: 'fixating',
       caption: '"><b>injected</b>',
     });
 
-    // No markup from untrusted fields is parsed into elements.
+    // No markup from any untrusted field is parsed into elements.
     expect(card.querySelector('img')).toBeNull();
     expect(card.querySelector('script')).toBeNull();
+    expect(card.querySelector('svg')).toBeNull();
     expect(card.querySelector('b')).toBeNull();
 
     // The raw strings survive as text content.
@@ -27,6 +28,9 @@ describe('createArticleCard', () => {
     );
     expect(card.querySelector('.article-outlet').textContent).toBe(
       '<img src=x onerror="window.__xss=1">',
+    );
+    expect(card.querySelector('.article-date').textContent).toBe(
+      '<svg onload="window.__xss=1">21 Jun</svg>',
     );
     expect(card.querySelector('.verdict-caption').textContent).toBe(
       '"><b>injected</b>',
