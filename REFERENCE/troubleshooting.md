@@ -441,18 +441,25 @@ lsof -i :3000         # See what's using port 3000
 
 ## Project-specific issues
 
-[Add issues specific to your project as you encounter them]
-
-### [Issue Category]
+### Security headers missing in production (securityheaders.com grades D)
 
 **Symptoms:**
-- [What you observe]
+- The live site returns none of the `Content-Security-Policy` / `X-Frame-Options` / etc. headers even though they're configured, and securityheaders.com grades it D.
+- `curl -sI https://andyburnhamyet.hultberg.org/` shows no security headers; a non-asset path (e.g. `/zz-random`) *does* show them.
 
 **Cause:**
-- [Why it happens]
+- This is a **Worker + static assets** project (`[assets]` in `wrangler.toml` with a `main` Worker). A `_headers` file is **not** honoured here (it gets served as a plain file — `GET /_headers` returns 200). Headers must be attached by the Worker.
+- The Worker only wraps asset responses when `[assets] run_worker_first = true` is in effect. That option requires **wrangler 4.x**.
+- The deploy was silently running **wrangler 3.90.0**: `cloudflare/wrangler-action@v3` installs its *own* default wrangler and ignores the `package.json` devDependency. wrangler 3.90 dropped `run_worker_first` as an "Unexpected fields found in assets field" warning, so the Worker never ran ahead of asset serving.
 
 **Solution:**
-- [How to fix it]
+- Headers are set in `src/worker.js` (`withSecurityHeaders()` over `env.ASSETS.fetch()`), gated by `run_worker_first = true` in `wrangler.toml`.
+- In `.github/workflows/deploy.yml`, **pin the wrangler version on the action** (`wranglerVersion: '4.104.0'`, kept in sync with the devDependency) — otherwise the action uses its old bundled default.
+- wrangler 4.x requires **Node ≥ 22**, so `actions/setup-node` must use `node-version: '22'` (Node 20 fails with "Wrangler requires at least Node.js v22.0.0").
+- Validate config before pushing: `npx wrangler deploy --dry-run` should show the wrangler version and **no** "unexpected field" warning, and list the `env.ASSETS` binding.
+- After deploying, a static asset already cached at the edge keeps its old (header-less) copy — **purge the Cloudflare cache once** (or the cached copy refreshes on its own) so `/` picks up the headers.
+
+**Takeaway:** when a deploy behaves as if a `wrangler.toml` option is ignored, check the **actual wrangler version the CI runs** (deploy log banner `⛅️ wrangler X.Y.Z`) — `wrangler-action` does not use the project's pinned version unless you tell it to.
 
 ---
 
