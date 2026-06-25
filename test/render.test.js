@@ -60,4 +60,32 @@ describe('createArticleCard', () => {
     expect(card.querySelector('.article-date').textContent).toBe('');
     expect(card.querySelector('.verdict-caption').textContent).toBe('');
   });
+
+  it('links the headline to a safe http(s) source URL (Q-3a)', () => {
+    const card = createArticleCard({
+      title: 'A real headline',
+      url: 'https://bbc.co.uk/news/article',
+      verdict: 'probing',
+      caption: 'c',
+    });
+
+    const link = card.querySelector('.article-title a');
+    expect(link).not.toBeNull();
+    expect(link.getAttribute('href')).toBe('https://bbc.co.uk/news/article');
+    expect(link.getAttribute('target')).toBe('_blank');
+    expect(link.getAttribute('rel')).toBe('noopener noreferrer');
+    expect(link.textContent).toBe('A real headline');
+  });
+
+  it('does not link a non-http(s) URL (e.g. javascript:) — renders plain text', () => {
+    const card = createArticleCard({
+      title: 'Sketchy',
+      url: 'javascript:window.__xss=1',
+      verdict: 'fixating',
+      caption: 'c',
+    });
+
+    expect(card.querySelector('.article-title a')).toBeNull();
+    expect(card.querySelector('.article-title').textContent).toBe('Sketchy');
+  });
 });

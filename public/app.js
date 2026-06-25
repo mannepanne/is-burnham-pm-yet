@@ -340,7 +340,21 @@
 
       const title = document.createElement('h3');
       title.className = 'article-title';
-      title.textContent = article.title || 'Untitled';
+      const titleText = article.title || 'Untitled';
+      // Link the headline to its source when the URL is a safe http(s) URL.
+      // The URL comes from the Perplexity pool (untrusted), so reject anything
+      // that isn't http/https (e.g. a javascript: URL) and fall back to plain
+      // text. The visible text is always set via textContent.
+      if (article.url && /^https?:\/\//i.test(article.url)) {
+        const link = document.createElement('a');
+        link.href = article.url;
+        link.textContent = titleText;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        title.appendChild(link);
+      } else {
+        title.textContent = titleText;
+      }
 
       const verdictWrap = document.createElement('span');
       verdictWrap.className = 'article-verdict';
