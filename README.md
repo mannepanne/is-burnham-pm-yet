@@ -15,3 +15,20 @@ A one-page website that answers a single binary question and contrasts the calm,
 - **Press panel** with articles judged and curated by Claude
 - **States**: loading, NOT YET, YES
 - **Caching** via Workers KV with cron trigger
+
+---
+
+## Testing
+
+Tests run with [Vitest](https://vitest.dev/) (happy-dom for the front-end render guard):
+
+```bash
+npm test            # run the suite once
+npm run test:watch  # watch mode
+npm run test:coverage  # with coverage (HTML report in coverage/)
+```
+
+The suite covers the Worker handlers (judge/curate, the `/api/refresh` auth
+gate, cache reads) and the front-end XSS-escaping guarantee. See
+[`REFERENCE/testing-strategy.md`](./REFERENCE/testing-strategy.md) for the
+approach.

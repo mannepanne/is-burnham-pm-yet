@@ -497,3 +497,13 @@ async function judgeAndCurate(env, pool) {
     return pool.length ? [{ i: 0, verdict: "noting", caption: NEUTRAL_CAPTION }] : [];
   }
 }
+
+// Named exports for unit testing. The Cloudflare runtime uses the default
+// export above; these expose the pipeline internals to the test suite without
+// changing runtime behaviour.
+export {
+  handleCommentary,
+  handleRefresh,
+  judgeAndCurate,
+  extractText,
+};
