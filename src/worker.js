@@ -289,8 +289,14 @@ Articles to refine:`;
       body: JSON.stringify({
         model: JUDGE_MODEL,
         max_tokens: 400,
-        system: refinementPrompt + articleContexts + '\n\nRespond with ONLY minified JSON: {"refined":[{"index":number,"verdict":"probing"|"fixating"|"noting","caption":string}]}',
-        messages: [],
+        // Instructions go in `system`; the article contexts go in a user
+        // message. The Messages API rejects an empty `messages` array (400),
+        // so the per-article payload must be a real user turn — mirroring how
+        // judgeAndCurate is structured.
+        system: refinementPrompt + '\n\nRespond with ONLY minified JSON: {"refined":[{"index":number,"verdict":"probing"|"fixating"|"noting","caption":string}]}',
+        messages: [
+          { role: "user", content: articleContexts },
+        ],
       }),
     });
 
@@ -506,4 +512,5 @@ export {
   handleRefresh,
   judgeAndCurate,
   extractText,
+  refineWithFullText,
 };

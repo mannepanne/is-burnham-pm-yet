@@ -6,6 +6,7 @@ import worker, {
   handleRefresh,
   handleCommentary,
   extractText,
+  refineWithFullText,
 } from '../src/worker.js';
 
 // Build a fetch stub that returns a single JSON body.
@@ -156,6 +157,61 @@ describe('fetch routing', () => {
       { REFRESH_SECRET: 'secret' },
     );
     expect(res.status).toBe(401);
+  });
+});
+
+describe('refineWithFullText', () => {
+  const articles = [
+    { title: 'A piece', url: 'https://news.example/a', outlet: 'BBC', verdict: 'fixating', caption: 'orig caption' },
+  ];
+
+  // Route article fetches vs the Anthropic call. Article fetches need a
+  // .text() body long enough to clear the 50-char floor; the Anthropic call
+  // needs a .json() body.
+  function routeFetch({ refinementBody }) {
+    return vi.fn(async (url) => {
+      if (typeof url === 'string' && url.includes('api.anthropic.com')) {
+        return { ok: true, json: async () => claudeText(refinementBody) };
+      }
+      return { ok: true, text: async () => `<p>${'word '.repeat(60)}</p>` };
+    });
+  }
+
+  it('applies a refined verdict and caption on a valid response', async () => {
+    const fetchSpy = routeFetch({
+      refinementBody: JSON.stringify({ refined: [{ index: 0, verdict: 'probing', caption: 'refined caption' }] }),
+    });
+    vi.stubGlobal('fetch', fetchSpy);
+
+    const result = await refineWithFullText(articles, { ANTHROPIC_API_KEY: 'k' });
+    expect(result[0].verdict).toBe('probing');
+    expect(result[0].caption).toBe('refined caption');
+
+    // Guard the Q-1 fix: the Anthropic request must carry a non-empty
+    // `messages` array (an empty array is a 400, which is the original bug).
+    const anthropicCall = fetchSpy.mock.calls.find(
+      ([url]) => typeof url === 'string' && url.includes('api.anthropic.com'),
+    );
+    expect(anthropicCall).toBeDefined();
+    const body = JSON.parse(anthropicCall[1].body);
+    expect(body.messages.length).toBeGreaterThan(0);
+    expect(body.messages[0].role).toBe('user');
+    expect(body.messages[0].content.length).toBeGreaterThan(0);
+  });
+
+  it('keeps the original verdict when the refinement reply is garbled', async () => {
+    vi.stubGlobal('fetch', routeFetch({ refinementBody: 'not json' }));
+
+    const result = await refineWithFullText(articles, { ANTHROPIC_API_KEY: 'k' });
+    expect(result[0].verdict).toBe('fixating');
+    expect(result[0].caption).toBe('orig caption');
+  });
+
+  it('returns the originals when no article text could be fetched', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false })));
+
+    const result = await refineWithFullText(articles, { ANTHROPIC_API_KEY: 'k' });
+    expect(result).toEqual(articles);
   });
 });
 
