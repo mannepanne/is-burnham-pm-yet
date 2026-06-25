@@ -22,6 +22,12 @@ jobs:
       - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3
         with:
+          # Pin wrangler 4.x. Without this, wrangler-action installs its own
+          # default (wrangler 3.90.0), which is too old to understand the
+          # `[assets]` run_worker_first option — it silently drops it, so the
+          # Worker never runs ahead of asset serving and the security headers
+          # are never attached. Keep this in sync with the devDependency.
+          wranglerVersion: '4.104.0'
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         env:
