@@ -62,28 +62,35 @@ describe('judgeAndCurate', () => {
 });
 
 describe('handleRefresh', () => {
+  const refreshReq = (key) =>
+    new Request('https://example.org/api/refresh', key ? { headers: { 'x-refresh-key': key } } : undefined);
+
   it('rejects a request with the wrong key (401)', async () => {
-    const url = new URL('https://example.org/api/refresh?key=wrong');
-    const res = await handleRefresh({ REFRESH_SECRET: 'secret' }, url);
+    const res = await handleRefresh({ REFRESH_SECRET: 'secret' }, refreshReq('wrong'));
     expect(res.status).toBe(401);
   });
 
-  it('rejects a request with no key (401)', async () => {
-    const url = new URL('https://example.org/api/refresh');
-    const res = await handleRefresh({ REFRESH_SECRET: 'secret' }, url);
+  it('rejects a request with no key header (401)', async () => {
+    const res = await handleRefresh({ REFRESH_SECRET: 'secret' }, refreshReq());
     expect(res.status).toBe(401);
   });
 
-  it('runs the pipeline when the key matches', async () => {
+  it('does not accept the secret in the query string', async () => {
+    // The old query-string mechanism must no longer authenticate.
+    const req = new Request('https://example.org/api/refresh?key=secret');
+    const res = await handleRefresh({ REFRESH_SECRET: 'secret' }, req);
+    expect(res.status).toBe(401);
+  });
+
+  it('runs the pipeline when the header key matches', async () => {
     // Perplexity returns an empty pool, so no Claude call is made.
     vi.stubGlobal('fetch', mockFetchJson({
       choices: [{ message: { content: JSON.stringify({ probability_pct: 10, one_line: 'x', pool: [] }) } }],
     }));
 
-    const url = new URL('https://example.org/api/refresh?key=secret');
     const res = await handleRefresh(
       { REFRESH_SECRET: 'secret', PERPLEXITY_API_KEY: 'k', ANTHROPIC_API_KEY: 'k' },
-      url,
+      refreshReq('secret'),
     );
     expect(res.status).toBe(200);
     const body = await res.json();
