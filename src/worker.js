@@ -106,7 +106,7 @@ export default {
     }
 
     if (url.pathname === "/api/refresh") {
-      return handleRefresh(env, url);
+      return handleRefresh(env, req);
     }
 
     // Non-asset, non-API path: 404
@@ -369,10 +369,11 @@ async function handleCommentary(env) {
 }
 
 // Handle manual refresh with secret protection
-async function handleRefresh(env, url) {
-  // Require secret key to prevent abuse
-  const secret = url.searchParams.get('key');
-  if (secret !== env.REFRESH_SECRET) {
+async function handleRefresh(env, req) {
+  // Require the secret in a request header, not the URL: query-string secrets
+  // leak into edge/access logs, the Referer header, and browser history.
+  const secret = req.headers.get("x-refresh-key");
+  if (!secret || secret !== env.REFRESH_SECRET) {
     return new Response("Unauthorized", { status: 401 });
   }
 
