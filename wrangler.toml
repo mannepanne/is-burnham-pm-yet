@@ -4,6 +4,11 @@ compatibility_date = "2026-06-23"
 
 [assets]
 directory = "./public"
+binding = "ASSETS"
+# Run the Worker ahead of asset matching so it can attach security headers to
+# static asset responses (a _headers file is not honoured in a Worker + assets
+# project). Low-traffic site, so the extra invocation is fine.
+run_worker_first = true
 
 [[kv_namespaces]]
 binding = "COMMENTARY_CACHE"

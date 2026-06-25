@@ -99,6 +99,38 @@ Respond with ONLY minified JSON, no prose, no markdown fences:
 1 to 3 entries, in the order they should appear; each i must reference an
 input candidate.`;
 
+// Security headers attached to static asset responses. style-src keeps
+// 'unsafe-inline' for the inline stylesheet and JS-set element.style; there
+// are no inline scripts, so script-src does not need 'unsafe-inline'.
+const CSP = [
+  "default-src 'self'",
+  "script-src 'self' https://static.cloudflareinsights.com",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "font-src https://fonts.gstatic.com",
+  "connect-src 'self' https://query.wikidata.org https://cloudflareinsights.com",
+  "img-src 'self' data:",
+  "frame-ancestors 'none'",
+  "base-uri 'none'",
+  "form-action 'none'",
+].join("; ");
+
+const SECURITY_HEADERS = {
+  "Content-Security-Policy": CSP,
+  "X-Frame-Options": "DENY",
+  "X-Content-Type-Options": "nosniff",
+  "Referrer-Policy": "strict-origin-when-cross-origin",
+  "Permissions-Policy": "geolocation=(), microphone=(), camera=()",
+};
+
+// Return a copy of an asset response with the security headers attached.
+function withSecurityHeaders(response) {
+  const withHeaders = new Response(response.body, response);
+  for (const [name, value] of Object.entries(SECURITY_HEADERS)) {
+    withHeaders.headers.set(name, value);
+  }
+  return withHeaders;
+}
+
 // Main handler with both fetch and scheduled triggers
 export default {
   async fetch(req, env) {
@@ -112,8 +144,12 @@ export default {
       return handleRefresh(env, req);
     }
 
-    // Non-asset, non-API path: 404
-    return new Response("Not found", { status: 404 });
+    // Everything else is a static asset. Serve it through the assets binding
+    // and attach the security headers. (A _headers file is not honoured for a
+    // Worker-plus-assets project, so the Worker owns these headers; this runs
+    // because run_worker_first is set in wrangler.toml.)
+    const assetResponse = await env.ASSETS.fetch(req);
+    return withSecurityHeaders(assetResponse);
   },
 
   // Cron-triggered cache refresh

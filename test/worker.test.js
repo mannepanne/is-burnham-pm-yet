@@ -145,9 +145,30 @@ describe('handleCommentary', () => {
 });
 
 describe('fetch routing', () => {
-  it('returns 404 for an unknown path', async () => {
-    const res = await worker.fetch(new Request('https://example.org/nope'), {});
+  // Mock the static-assets binding.
+  const assetsEnv = (assetResponse) => ({
+    ASSETS: { fetch: vi.fn(async () => assetResponse) },
+  });
+
+  it('serves a static asset with the security headers attached', async () => {
+    const env = assetsEnv(new Response('<html></html>', { status: 200 }));
+    const res = await worker.fetch(new Request('https://example.org/'), env);
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-security-policy')).toContain("default-src 'self'");
+    expect(res.headers.get('content-security-policy')).toContain("script-src 'self' https://static.cloudflareinsights.com");
+    expect(res.headers.get('x-frame-options')).toBe('DENY');
+    expect(res.headers.get('x-content-type-options')).toBe('nosniff');
+    expect(res.headers.get('referrer-policy')).toBe('strict-origin-when-cross-origin');
+    expect(res.headers.get('permissions-policy')).toContain('geolocation=()');
+  });
+
+  it('passes the asset status through (e.g. 404) with headers still attached', async () => {
+    const env = assetsEnv(new Response('not found', { status: 404 }));
+    const res = await worker.fetch(new Request('https://example.org/nope'), env);
+
     expect(res.status).toBe(404);
+    expect(res.headers.get('content-security-policy')).toBeTruthy();
   });
 
   it('routes /api/commentary to the cache-served handler', async () => {
