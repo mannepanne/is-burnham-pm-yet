@@ -7,6 +7,30 @@
 
 ---
 
+## Status — completed (2026-06-25)
+
+All eight findings have been remediated and merged. A test suite was introduced
+from scratch (0 → 22 tests; `worker.js` line coverage ~85%).
+
+| Finding | PR |
+|---------|----|
+| S-1 — stored XSS | #10 |
+| Q-2 — test harness | #11 |
+| Q-1 — dead full-text refinement | #12 |
+| S-3 — refresh secret → `X-Refresh-Key` header | #13 |
+| S-2 — CSP + security headers (inline script extracted to `public/app.js`) | #14 |
+| S-4 + S-5 — negative-cache + SSRF guard | #15 |
+| Q-3 — clickable headlines + README typo | #16 |
+| Follow-on — 30s commentary cold-start timeout | #17 |
+
+**Outstanding manual / operational items (not code):**
+- ✅ `REFRESH_SECRET` rotated (S-3) — done.
+- ⏳ Cloudflare **rate-limiting rule** on `/api/commentary` (the dashboard half of S-4) — to be applied in the Cloudflare dashboard.
+- ⏳ Verify a **securityheaders.com A grade** against staging/production after deploy (S-2).
+- Accepted **coverage waiver**: the 95% standard is not met at the harness stage; Q-1 and S-3 carried their lines (coverage reached ~85%). No enforced threshold added.
+
+---
+
 ## How to use this document
 
 Each finding has a stable ID (`Q-n` for quality, `S-n` for security), a severity, the exact location, the problem, and a recommended fix. Work through them in the **remediation order** below — it sequences by risk and by sensible grouping (some Medium fixes ship naturally alongside the Critical one).
@@ -17,14 +41,14 @@ Each finding should become its own small PR (or a logically grouped PR where not
 
 ## Remediation order
 
-- [ ] **1. S-1 — Fix the stored XSS** (Critical, blocking) — `public/index.html`
-- [ ] **2. S-2 — Add security headers / CSP** (Medium) — new `public/_headers` *(ship alongside S-1; the CSP backstops the XSS)*
-- [ ] **3. S-3 — Move `/api/refresh` secret out of the query string** (Medium) — `src/worker.js`
-- [ ] **4. Q-1 — Fix the dead full-text refinement** (High, correctness) — `src/worker.js`
-- [ ] **5. S-4 — Negative-cache empty results + rate limit** (Medium-Low) — `src/worker.js`
-- [ ] **6. Q-2 — Add an automated test suite** (High, process) — locks in S-1 and Q-1
-- [ ] **7. S-5 — Harden `fetchArticle()` against SSRF** (Low, defence-in-depth) — `src/worker.js`
-- [ ] **8. Q-3 — Smaller fixes** (clickable headlines, README typo)
+- [x] **1. S-1 — Fix the stored XSS** (Critical, blocking) — `public/index.html` *(PR #10)*
+- [x] **2. S-2 — Add security headers / CSP** (Medium) — new `public/_headers` *(PR #14; securityheaders.com A-grade verification still pending post-deploy)*
+- [x] **3. S-3 — Move `/api/refresh` secret out of the query string** (Medium) — `src/worker.js` *(PR #13; secret rotated)*
+- [x] **4. Q-1 — Fix the dead full-text refinement** (High, correctness) — `src/worker.js` *(PR #12)*
+- [x] **5. S-4 — Negative-cache empty results + rate limit** (Medium-Low) — `src/worker.js` *(PR #15; code done — Cloudflare rate-limit rule still to be applied in the dashboard)*
+- [x] **6. Q-2 — Add an automated test suite** (High, process) — locks in S-1 and Q-1 *(PR #11)*
+- [x] **7. S-5 — Harden `fetchArticle()` against SSRF** (Low, defence-in-depth) — `src/worker.js` *(PR #15)*
+- [x] **8. Q-3 — Smaller fixes** (clickable headlines, README typo) *(PR #16)*
 
 ---
 

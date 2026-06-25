@@ -6,6 +6,9 @@ This directory contains all specifications for the "Is Andy Burnham the UK Prime
 - Phases 1-3: `SPECIFICATIONS/ARCHIVE/2026-06-24-Phase-1-3/`
 - Phases 4-5: `SPECIFICATIONS/ARCHIVE/2026-06-24-Phase-4-5/`
 
+A post-delivery quality + security review has also been completed and archived:
+- `SPECIFICATIONS/ARCHIVE/2026-06-25-quality-and-security-review.md` (findings S-1–S-5, Q-1–Q-3; shipped in PRs #10–#17)
+
 Each archive includes full implementation details and completion summaries.
 
 ---
