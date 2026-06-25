@@ -10,7 +10,7 @@
 ## Status — completed (2026-06-25)
 
 All eight findings have been remediated and merged. A test suite was introduced
-from scratch (0 → 22 tests; `worker.js` line coverage ~85%).
+from scratch (0 → 23 tests; `worker.js` line coverage ~85%).
 
 | Finding | PR |
 |---------|----|
@@ -22,11 +22,14 @@ from scratch (0 → 22 tests; `worker.js` line coverage ~85%).
 | S-4 + S-5 — negative-cache + SSRF guard | #15 |
 | Q-3 — clickable headlines + README typo | #16 |
 | Follow-on — 30s commentary cold-start timeout | #17 |
+| S-2 deploy fix — security headers served from the Worker | #19 |
+| CI fix — pin wrangler 4.x on the deploy action | #20 |
+| CI fix — bump deploy Node to 22 (wrangler 4 requirement) | #21 |
 
 **Outstanding manual / operational items (not code):**
 - ✅ `REFRESH_SECRET` rotated (S-3) — done.
-- ⏳ Cloudflare **rate-limiting rule** on `/api/commentary` (the dashboard half of S-4) — to be applied in the Cloudflare dashboard.
-- ⏳ Verify a **securityheaders.com A grade** against staging/production after deploy (S-2).
+- ✅ Cloudflare **rate-limiting rule** on `/api/commentary` (the dashboard half of S-4) — added (20 req / 10s per IP).
+- ✅ **securityheaders.com** grade verified live — **A+** (S-2). Note: the headers did not work via a `_headers` file in this Worker + assets project; they are served from the Worker (PR #19), which required pinning the CI deploy to wrangler 4.x on Node 22 (PRs #20, #21). See `REFERENCE/troubleshooting.md` → "Security headers missing in production".
 - Accepted **coverage waiver**: the 95% standard is not met at the harness stage; Q-1 and S-3 carried their lines (coverage reached ~85%). No enforced threshold added.
 
 ---
