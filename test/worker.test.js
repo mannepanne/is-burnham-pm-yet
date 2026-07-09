@@ -7,6 +7,7 @@ import worker, {
   handleCommentary,
   extractText,
   refineWithFullText,
+  isPublicHttpsUrl,
   normalizeUrl,
   computeJudgePool,
   appendToArchive,
@@ -48,6 +49,15 @@ describe('judgeAndCurate', () => {
     expect(result).toEqual([{ i: 1, verdict: 'fixating', caption: 'sharp' }]);
   });
 
+  it('falls back to a neutral card when the reply omits the selected array', async () => {
+    // parsed.selected is absent → (parsed.selected ?? []) → empty → neutral fallback.
+    // The pool item here has no snippet/caption, exercising those ?? defaults too.
+    vi.stubGlobal('fetch', mockFetchJson(claudeText(JSON.stringify({ note: 'no selection' }))));
+
+    const result = await judgeAndCurate({ ANTHROPIC_API_KEY: 'k' }, [{ title: 't', outlet: 'o' }]);
+    expect(result).toEqual([{ i: 0, verdict: 'noting', caption: expect.any(String) }]);
+  });
+
   it('coerces an out-of-allowlist verdict to "noting"', async () => {
     vi.stubGlobal('fetch', mockFetchJson(
       claudeText(JSON.stringify({ selected: [{ i: 0, verdict: 'banana', caption: 'x' }] })),
@@ -63,6 +73,20 @@ describe('judgeAndCurate', () => {
     const result = await judgeAndCurate({ ANTHROPIC_API_KEY: 'k' }, pool);
     expect(result).toHaveLength(1);
     expect(result[0].verdict).toBe('noting');
+  });
+
+  it('shows one neutral card when the judge selects nothing from a non-empty pool', async () => {
+    vi.stubGlobal('fetch', mockFetchJson(claudeText(JSON.stringify({ selected: [] }))));
+
+    const result = await judgeAndCurate({ ANTHROPIC_API_KEY: 'k' }, pool);
+    expect(result).toEqual([{ i: 0, verdict: 'noting', caption: expect.any(String) }]);
+  });
+
+  it('returns nothing when the reply is unparseable and the pool is empty', async () => {
+    vi.stubGlobal('fetch', mockFetchJson(claudeText('still not json')));
+
+    const result = await judgeAndCurate({ ANTHROPIC_API_KEY: 'k' }, []);
+    expect(result).toEqual([]);
   });
 });
 
@@ -146,6 +170,117 @@ describe('handleCommentary', () => {
     expect(put).toHaveBeenCalledTimes(1);
     expect(put.mock.calls[0][2].expirationTtl).toBe(120);
     expect(put.mock.calls[0][2].expirationTtl).toBeLessThan(6 * 60 * 60);
+  });
+});
+
+describe('pipeline and handler error paths', () => {
+  it('treats an unparseable Perplexity reply as an empty pool', async () => {
+    // retrievePool's JSON.parse fails → empty pool → pipeline yields no articles,
+    // with null meta carried through.
+    vi.stubGlobal('fetch', mockFetchJson({
+      choices: [{ message: { content: 'this is not json' } }],
+    }));
+
+    const res = await handleRefresh(
+      { REFRESH_SECRET: 'secret', PERPLEXITY_API_KEY: 'k', ANTHROPIC_API_KEY: 'k' },
+      new Request('https://example.org/api/refresh', { headers: { 'x-refresh-key': 'secret' } }),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.articles).toEqual([]);
+    expect(body.probability_pct).toBeNull();
+  });
+
+  it('degrades to an empty result when the pipeline throws (Perplexity fetch rejects)', async () => {
+    const put = vi.fn(async () => {});
+    const env = {
+      COMMENTARY_CACHE: { get: async () => null, put }, // miss → runs pipeline
+      PERPLEXITY_API_KEY: 'k', ANTHROPIC_API_KEY: 'k',
+    };
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('network down'); }));
+
+    const res = await handleCommentary(env);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.articles).toEqual([]);
+    // Empty result is negative-cached briefly.
+    expect(put.mock.calls[0][2].expirationTtl).toBe(120);
+  });
+
+  it('handleCommentary degrades to a 200 empty result when the cache read throws', async () => {
+    const env = { COMMENTARY_CACHE: { get: async () => { throw new Error('kv read down'); }, put: async () => {} } };
+    const res = await handleCommentary(env);
+    expect(res.status).toBe(200);
+    expect((await res.json()).articles).toEqual([]);
+  });
+
+  it('handleRefresh writes a full result to the cache with the 6-hour TTL', async () => {
+    let anthropicCalls = 0;
+    vi.stubGlobal('fetch', vi.fn(async (url) => {
+      if (typeof url === 'string' && url.includes('perplexity')) {
+        return { ok: true, json: async () => ({
+          choices: [{ message: { content: JSON.stringify({
+            probability_pct: 20, one_line: 'x',
+            pool: [{ title: 't', url: 'https://news.example/0', outlet: 'o', date: '3 Jul', snippet: 's' }],
+          }) } }],
+        }) };
+      }
+      if (typeof url === 'string' && url.includes('api.anthropic.com')) {
+        anthropicCalls += 1;
+        const payload = anthropicCalls === 1
+          ? { selected: [{ i: 0, verdict: 'noting', caption: 'c' }] }
+          : { refined: [] };
+        return { ok: true, json: async () => claudeText(JSON.stringify(payload)) };
+      }
+      return { ok: true, headers: { get: () => null }, text: async () => `${'word '.repeat(60)}` };
+    }));
+
+    const put = vi.fn(async () => {});
+    const res = await handleRefresh(
+      { REFRESH_SECRET: 'secret', PERPLEXITY_API_KEY: 'k', ANTHROPIC_API_KEY: 'k', COMMENTARY_CACHE: { put } },
+      new Request('https://example.org/api/refresh', { headers: { 'x-refresh-key': 'secret' } }),
+    );
+    expect(res.status).toBe(200);
+    expect((await res.json()).articles).toHaveLength(1);
+    expect(put).toHaveBeenCalledTimes(1);
+    expect(put.mock.calls[0][0]).toBe('commentary:v1');
+    expect(put.mock.calls[0][2].expirationTtl).toBe(6 * 60 * 60);
+  });
+
+  it('handleRefresh degrades to empty when the cache write throws', async () => {
+    // Drive a full pipeline that yields one article, then make kv.put throw so
+    // handleRefresh's own catch is exercised.
+    let anthropicCalls = 0;
+    vi.stubGlobal('fetch', vi.fn(async (url) => {
+      if (typeof url === 'string' && url.includes('perplexity')) {
+        return { ok: true, json: async () => ({
+          choices: [{ message: { content: JSON.stringify({
+            probability_pct: 20, one_line: 'x',
+            pool: [{ title: 't', url: 'https://news.example/0', outlet: 'o', date: '3 Jul', snippet: 's' }],
+          }) } }],
+        }) };
+      }
+      if (typeof url === 'string' && url.includes('api.anthropic.com')) {
+        anthropicCalls += 1;
+        const payload = anthropicCalls === 1
+          ? { selected: [{ i: 0, verdict: 'noting', caption: 'c' }] }
+          : { refined: [] };
+        return { ok: true, json: async () => claudeText(JSON.stringify(payload)) };
+      }
+      return { ok: true, headers: { get: () => null }, text: async () => `${'word '.repeat(60)}` };
+    }));
+
+    const env = {
+      REFRESH_SECRET: 'secret', PERPLEXITY_API_KEY: 'k', ANTHROPIC_API_KEY: 'k',
+      COMMENTARY_CACHE: { put: async () => { throw new Error('kv write failed'); } },
+    };
+    const res = await handleRefresh(
+      env,
+      new Request('https://example.org/api/refresh', { headers: { 'x-refresh-key': 'secret' } }),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.articles).toEqual([]);
   });
 });
 
@@ -270,6 +405,54 @@ describe('refineWithFullText', () => {
     expect(fetchSpy).not.toHaveBeenCalled();
     expect(result).toEqual(unsafe);
   });
+
+  it('returns the input unchanged when there are no articles to refine', async () => {
+    expect(await refineWithFullText([], { ANTHROPIC_API_KEY: 'k' })).toEqual([]);
+    expect(await refineWithFullText(null, { ANTHROPIC_API_KEY: 'k' })).toBeNull();
+  });
+
+  it('keeps originals when the article fetch itself throws', async () => {
+    // A public URL whose fetch rejects → fetchArticle catch → no text → originals.
+    vi.stubGlobal('fetch', vi.fn(async (url) => {
+      if (typeof url === 'string' && url.includes('api.anthropic.com')) {
+        return { ok: true, json: async () => claudeText('{"refined":[]}') };
+      }
+      throw new Error('connection reset');
+    }));
+
+    const result = await refineWithFullText(articles, { ANTHROPIC_API_KEY: 'k' });
+    expect(result).toEqual(articles);
+  });
+
+  it('keeps originals when the refinement API call throws', async () => {
+    // Article text fetches fine, but the Anthropic refine call rejects → outer catch.
+    vi.stubGlobal('fetch', vi.fn(async (url) => {
+      if (typeof url === 'string' && url.includes('api.anthropic.com')) {
+        throw new Error('anthropic 503');
+      }
+      return { ok: true, headers: { get: () => null }, text: async () => `${'word '.repeat(60)}` };
+    }));
+
+    const result = await refineWithFullText(articles, { ANTHROPIC_API_KEY: 'k' });
+    expect(result).toEqual(articles);
+  });
+
+  it('skips an article whose declared size exceeds the byte cap', async () => {
+    // Article fetch reports a content-length over the 2 MB cap → fetchArticle
+    // returns null → no text → originals returned unchanged.
+    const fetchSpy = vi.fn(async (url) => {
+      if (typeof url === 'string' && url.includes('api.anthropic.com')) {
+        return { ok: true, json: async () => claudeText('{"refined":[]}') };
+      }
+      return { ok: true, headers: { get: () => String(3_000_000) }, text: async () => 'x'.repeat(100) };
+    });
+    vi.stubGlobal('fetch', fetchSpy);
+
+    const result = await refineWithFullText(articles, { ANTHROPIC_API_KEY: 'k' });
+    expect(result).toEqual(articles);
+    // The oversized article body is never handed to the Anthropic refine call.
+    expect(fetchSpy.mock.calls.some(([u]) => typeof u === 'string' && u.includes('api.anthropic.com'))).toBe(false);
+  });
 });
 
 describe('extractText', () => {
@@ -278,6 +461,53 @@ describe('extractText', () => {
     expect(text).not.toContain('evil');
     expect(text).toContain('Hello');
     expect(text).toContain('world');
+  });
+});
+
+describe('isPublicHttpsUrl (SSRF guard)', () => {
+  it('accepts a normal public https URL', () => {
+    expect(isPublicHttpsUrl('https://news.example.com/story')).toBe(true);
+  });
+
+  it('rejects unparseable input and non-https schemes', () => {
+    expect(isPublicHttpsUrl('not a url')).toBe(false);
+    expect(isPublicHttpsUrl('http://news.example.com/story')).toBe(false); // not https
+    expect(isPublicHttpsUrl('ftp://news.example.com')).toBe(false);
+  });
+
+  it('rejects localhost and its subdomains', () => {
+    expect(isPublicHttpsUrl('https://localhost/x')).toBe(false);
+    expect(isPublicHttpsUrl('https://api.localhost/x')).toBe(false);
+  });
+
+  it('rejects unspecified and IPv6 loopback/unspecified hosts', () => {
+    expect(isPublicHttpsUrl('https://0.0.0.0/x')).toBe(false);
+    expect(isPublicHttpsUrl('https://[::1]/x')).toBe(false);
+    expect(isPublicHttpsUrl('https://[::]/x')).toBe(false);
+  });
+
+  it('rejects the cloud metadata address', () => {
+    expect(isPublicHttpsUrl('https://169.254.169.254/latest/meta-data')).toBe(false);
+  });
+
+  it('rejects loopback and RFC1918 private ranges', () => {
+    expect(isPublicHttpsUrl('https://127.0.0.1/x')).toBe(false);
+    expect(isPublicHttpsUrl('https://10.1.2.3/x')).toBe(false);
+    expect(isPublicHttpsUrl('https://192.168.1.1/x')).toBe(false);
+    expect(isPublicHttpsUrl('https://172.16.0.1/x')).toBe(false);
+    expect(isPublicHttpsUrl('https://172.31.255.255/x')).toBe(false);
+  });
+
+  it('rejects link-local ranges (IPv4 and IPv6)', () => {
+    expect(isPublicHttpsUrl('https://169.254.1.1/x')).toBe(false);
+    expect(isPublicHttpsUrl('https://[fe80::1]/x')).toBe(false);
+    expect(isPublicHttpsUrl('https://[fc00::1]/x')).toBe(false); // unique-local
+    expect(isPublicHttpsUrl('https://[fd12::1]/x')).toBe(false); // unique-local
+  });
+
+  it('allows a public IP just outside the 172.16/12 private block', () => {
+    // 172.32.x is public; guards the regex boundary.
+    expect(isPublicHttpsUrl('https://172.32.0.1/x')).toBe(true);
   });
 });
 

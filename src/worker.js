@@ -753,6 +753,7 @@ export {
   judgeAndCurate,
   extractText,
   refineWithFullText,
+  isPublicHttpsUrl,
   normalizeUrl,
   computeJudgePool,
   appendToArchive,

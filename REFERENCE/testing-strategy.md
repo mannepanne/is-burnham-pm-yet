@@ -37,7 +37,11 @@ Tests are **living specifications**. Before writing implementation:
 
 ### 2. High Coverage Goal
 
-Target: 95%+ lines/functions/statements, 90%+ branches
+Target: 95%+ lines/functions/statements, 90%+ branches — **enforced** for the
+Worker via `coverage.thresholds` in `vitest.config.js`, so `npm run test:coverage`
+(and any run with `--coverage`) fails if `src/**` drops below the bar. The
+front-end modules (`public/*.js`) are outside the measured scope; they are guarded
+by the happy-dom render tests rather than a coverage number.
 
 Why high coverage?
 - Agents need clear examples of how code should behave
@@ -227,7 +231,8 @@ export function createMockReaderAPI() {
 
 ## Coverage Requirements
 
-**Overall Target:** 95%+ statements/functions/lines, 90%+ branches
+**Overall Target:** 95%+ statements/functions/lines, 90%+ branches — enforced for
+`src/**` by the thresholds in `vitest.config.js` (see "High Coverage Goal" above).
 
 **Per-File Requirements:**
 - Utils: 95%+ all metrics

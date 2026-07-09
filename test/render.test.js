@@ -3,6 +3,7 @@
 // @vitest-environment happy-dom
 import { describe, it, expect } from 'vitest';
 import { createArticleCard } from '../public/app.js';
+import { extractText } from '../src/worker.js';
 
 describe('createArticleCard', () => {
   it('renders HTML metacharacters in untrusted fields as inert text (S-1)', () => {
@@ -87,5 +88,28 @@ describe('createArticleCard', () => {
 
     expect(card.querySelector('.article-title a')).toBeNull();
     expect(card.querySelector('.article-title').textContent).toBe('Sketchy');
+  });
+});
+
+// extractText's regex fallback is covered in the node-environment worker suite;
+// this exercises the DOMParser branch, which only runs where a DOM is present
+// (the Workers runtime — and happy-dom here).
+describe('extractText (DOMParser branch)', () => {
+  it('strips scripts, style and chrome via DOMParser, keeping body prose', () => {
+    const html = `
+      <html><head><style>.x{color:red}</style></head>
+      <body><nav>menu</nav><p>Burnham confirms he will stand.</p>
+      <script>evil()</script><footer>foot</footer></body></html>`;
+    const text = extractText(html);
+    expect(text).toContain('Burnham confirms he will stand');
+    expect(text).not.toContain('evil');
+    expect(text).not.toContain('color:red');
+    expect(text).not.toContain('menu');
+    expect(text).not.toContain('foot');
+  });
+
+  it('caps output at ~1500 characters', () => {
+    const long = `<p>${'word '.repeat(1000)}</p>`;
+    expect(extractText(long).length).toBeLessThanOrEqual(1500);
   });
 });
