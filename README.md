@@ -12,7 +12,8 @@ A one-page website that answers a single binary question and contrasts the calm,
 
 - **Hero answer** from Wikidata SPARQL (client-side, no server dependency)
 - **Probability readout** from Perplexity Sonar API via Worker
-- **Press panel** with articles judged and curated by Claude
+- **Press panel** with articles judged and curated by Claude, sampled across the political spectrum
+- **Archive** sub-page — a paginated, newest-first record of every article shown, which also rotates the front page away from repeats
 - **States**: loading, NOT YET, YES
 - **Caching** via Workers KV with cron trigger
 
@@ -29,6 +30,8 @@ npm run test:coverage  # with coverage (HTML report in coverage/)
 ```
 
 The suite covers the Worker handlers (judge/curate, the `/api/refresh` auth
-gate, cache reads) and the front-end XSS-escaping guarantee. See
+gate, cache reads), the archive helpers (URL normalisation, selection/rotation,
+append/dedup, pagination), the `/api/archive` endpoint, and the front-end
+XSS-escaping guarantee (including the archive page's card rendering). See
 [`REFERENCE/testing-strategy.md`](./REFERENCE/testing-strategy.md) for the
 approach.
