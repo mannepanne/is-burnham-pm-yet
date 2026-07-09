@@ -1,6 +1,6 @@
 # Spec: Press archive + broader outlet coverage
 
-**Status:** Active
+**Status:** Completed (merged via PR #24)
 **Branch:** `feature/archive-and-outlet-coverage`
 **Date:** 2026-07-07
 
