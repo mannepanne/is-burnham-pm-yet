@@ -117,10 +117,14 @@
       padding: 30px 0;
     }
 
-    /* Two columns of up to ten clippings each; collapses to one on narrow screens. */
+    /* Two columns of up to ten clippings each, filled top-to-bottom: column one
+       holds the newest ten, column two the next ten. Collapses to one on narrow
+       screens. */
     #archive-list {
       display: grid;
       grid-template-columns: 1fr 1fr;
+      grid-template-rows: repeat(10, auto);
+      grid-auto-flow: column;
       gap: 0 40px;
     }
 
@@ -241,7 +245,7 @@
     }
 
     @media (max-width: 700px) {
-      #archive-list { grid-template-columns: 1fr; gap: 0; }
+      #archive-list { grid-template-columns: 1fr; grid-template-rows: none; grid-auto-flow: row; gap: 0; }
       #masthead-title { font-size: 38px; }
       #masthead { padding: 16px 20px 0; }
       #archive-body { padding: 20px; }

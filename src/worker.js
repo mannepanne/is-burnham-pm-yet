@@ -198,7 +198,7 @@ export default {
 // Run the full pipeline: Perplexity -> Claude -> curate.
 // `opts.seen` is a Set of normalised URLs already shown (the caller reads it from
 // the archive). When present it biases selection toward fresh articles so the panel
-// rotates. When absent, behaviour is unchanged from before this feature.
+// rotates. When absent, selection is unbiased and the full pool is judged.
 async function runPipeline(env, { seen } = {}) {
   const empty = { probability_pct: null, one_line: "", articles: [] };
 

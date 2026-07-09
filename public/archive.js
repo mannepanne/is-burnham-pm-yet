@@ -2,7 +2,6 @@
 // ABOUT: Fetches a paginated slice of /api/archive and renders it, newest-first.
 import { createArticleCard } from './app.js';
 
-const PAGE_SIZE = 20;
 const FETCH_TIMEOUT = 15000; // 15s — the archive is a plain KV read, so this is generous
 
 // Read the requested page from the query string; clamp to a sane minimum. The
