@@ -327,9 +327,9 @@ Tests validate **correctness**, but don't guarantee:
 ---
 
 **Status:** A Vitest suite exists under `test/` — Worker handler tests in the
-node environment (using `global.fetch` stubs via `vi.stubGlobal`) and a
-front-end render guard in the happy-dom environment. Run it with `npm test`
-(or `npm run test:coverage`). `worker.js` line coverage is partial and climbs
-as the remaining pipeline paths gain tests; the generic examples above are
-illustrative and predate this project — they have not yet been reconciled to
-the actual Worker + front-end suite.
+node environment (using `global.fetch` stubs via `vi.stubGlobal`) and front-end
+render guards in the happy-dom environment. Run it with `npm test` (or `npm run
+test:coverage`). `worker.js` meets the enforced 95/90 bar; the front-end modules
+are guarded by the happy-dom render tests rather than a coverage number. The
+generic per-file examples above are illustrative and predate this project — the
+enforced floor is the global `src/**` threshold, not those per-file numbers.
