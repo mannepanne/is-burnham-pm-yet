@@ -39,9 +39,11 @@ Tests are **living specifications**. Before writing implementation:
 
 Target: 95%+ lines/functions/statements, 90%+ branches — **enforced** for the
 Worker via `coverage.thresholds` in `vitest.config.js`, so `npm run test:coverage`
-(and any run with `--coverage`) fails if `src/**` drops below the bar. The
-front-end modules (`public/*.js`) are outside the measured scope; they are guarded
-by the happy-dom render tests rather than a coverage number.
+(and any run with `--coverage`) fails if `src/**` drops below the bar. The `Tests`
+GitHub Actions workflow (`.github/workflows/test.yml`) runs this on every pull
+request to `main`, so a regression is caught before merge. The front-end modules
+(`public/*.js`) are outside the measured scope; they are guarded by the happy-dom
+render tests rather than a coverage number.
 
 Why high coverage?
 - Agents need clear examples of how code should behave
