@@ -14,6 +14,15 @@ const TTL_SECONDS = 6 * 60 * 60; // 6 hours
 // parse failure) doesn't re-run the paid pipeline on every on-demand request.
 const NEGATIVE_TTL_SECONDS = 120; // 2 minutes
 
+// Archive: an append-only record of every article that has appeared on the panel,
+// newest-first (index 0 = most recent). Written only from the cron `scheduled`
+// path (single writer, so no read-modify-write race), and read both to page the
+// archive endpoint and to steer each cycle's selection away from articles already
+// shown — which is what rotates the front page across cron cycles.
+const ARCHIVE_KEY = "archive:v1";
+const ARCHIVE_PAGE_SIZE = 20;
+const MAX_ARCHIVE = 1000; // cap the stored array; oldest entries trimmed
+
 // Judge prompt
 const JUDGE_PROMPT = `You are the editor of a dry, sardonic site that tracks whether Andy Burnham has
 become UK Prime Minister. You are honest about the British press: where coverage
@@ -140,6 +149,10 @@ export default {
       return handleCommentary(env);
     }
 
+    if (url.pathname === "/api/archive") {
+      return handleArchive(env, req);
+    }
+
     if (url.pathname === "/api/refresh") {
       return handleRefresh(env, req);
     }
@@ -152,46 +165,74 @@ export default {
     return withSecurityHeaders(assetResponse);
   },
 
-  // Cron-triggered cache refresh
+  // Cron-triggered cache refresh. This is the ONLY path that writes the archive,
+  // so archive writes have a single writer and no read-modify-write race. It reads
+  // the archive first to steer selection away from already-shown articles (rotating
+  // the panel), then appends whatever was shown back to the archive.
   async scheduled(event, env, ctx) {
-    const result = await runPipeline(env);
+    const kv = env.COMMENTARY_CACHE;
+
+    const archive = kv ? (await kv.get(ARCHIVE_KEY, "json")) ?? [] : [];
+    const seen = new Set(
+      archive.map((a) => normalizeUrl(a?.url)).filter((k) => k !== null),
+    );
+
+    const result = await runPipeline(env, { seen });
+
     if (result.articles?.length) {
-      await env.COMMENTARY_CACHE.put(CACHE_KEY, JSON.stringify(result), {
-        expirationTtl: TTL_SECONDS,
-      });
+      if (kv) {
+        await kv.put(CACHE_KEY, JSON.stringify(result), { expirationTtl: TTL_SECONDS });
+
+        const updated = appendToArchive(archive, result.articles, MAX_ARCHIVE);
+        // Archive has no TTL — it is the site's permanent record.
+        await kv.put(ARCHIVE_KEY, JSON.stringify(updated));
+        // Observability: how many of this cycle's cards were genuinely new tells us
+        // how often rotation actually fires for this niche topic.
+        const added = updated.length - archive.length;
+        console.log(`Archive: ${result.articles.length} shown, ${added} new, ${updated.length} total`);
+      }
     }
   },
 };
 
-// Run the full pipeline: Perplexity -> Claude -> curate
-async function runPipeline(env) {
+// Run the full pipeline: Perplexity -> Claude -> curate.
+// `opts.seen` is a Set of normalised URLs already shown (the caller reads it from
+// the archive). When present it biases selection toward fresh articles so the panel
+// rotates. When absent, behaviour is unchanged from before this feature.
+async function runPipeline(env, { seen } = {}) {
   const empty = { probability_pct: null, one_line: "", articles: [] };
 
   try {
     // Stage 1: Perplexity retrieves a representative pool
     const found = await retrievePool(env);
-    const meta = { 
-      probability_pct: found.probability_pct ?? null, 
-      one_line: found.one_line ?? "" 
+    const meta = {
+      probability_pct: found.probability_pct ?? null,
+      one_line: found.one_line ?? ""
     };
-    
+
     if (!found.pool?.length) {
       return { ...empty, ...meta };
     }
 
+    // Bias selection toward articles not shown before. The judge indexes into
+    // `judgePool`, so selections MUST be resolved against `judgePool` too — the two
+    // are a matched pair; indexing the raw pool here would dereference the wrong
+    // article.
+    const judgePool = computeJudgePool(found.pool, seen);
+
     // Stage 2: Claude judges the pool and curates up to 3
-    const selected = await judgeAndCurate(env, found.pool);
+    const selected = await judgeAndCurate(env, judgePool);
 
     const articles = selected
       .map((s) => {
-        const a = found.pool[s.i];
-        return a && { 
-          title: a.title, 
-          url: a.url, 
-          outlet: a.outlet, 
-          date: a.date, 
-          verdict: s.verdict, 
-          caption: s.caption 
+        const a = judgePool[s.i];
+        return a && {
+          title: a.title,
+          url: a.url,
+          outlet: a.outlet,
+          date: a.date,
+          verdict: s.verdict,
+          caption: s.caption
         };
       })
       .filter(Boolean)
@@ -491,9 +532,21 @@ Schema: {"probability_pct": number, "one_line": string,
 Return up to ${POOL_TARGET} recent articles that TOGETHER form a fair,
 representative sample of how the UK media is currently covering whether Andy
 Burnham is or will become Prime Minister. Aim for a spread across hard news and
-analysis, opinion/comment, and lighter colour pieces, and across
-different outlets. Do NOT pre-select for any slant, quality, or how mockable a
-piece is — just report what is actually being published. "snippet" is 1-2
+analysis, opinion/comment, and lighter colour pieces.
+Aim for a spread across the political and editorial spectrum, not just the sober
+centre, and balanced across left, centre and right. Deliberately span: national
+broadsheets and mid-market/tabloid papers (e.g. Guardian, Mirror, i, Times, Sunday
+Times, Telegraph, Mail, Express); broadcast and opinion-broadcast outlets including
+partisan ones (e.g. BBC, Sky, GB News, TalkTV, LBC); comment, satirical and
+independent outlets from across the spectrum (e.g. Spectator, The Critic, UnHerd,
+Guido Fawkes, New Statesman, Novara Media, Zeteo UK, The Nerve, Private Eye); and
+regional coverage close to Burnham (e.g. Manchester Evening News). The louder,
+outrage-driven end of the press is part of the real picture and should not be left
+out when genuinely present — but include an outlet only where it has genuinely
+published on the topic. Never invent an article, headline or outlet, and never
+attribute a piece to an outlet that has not run one. Do NOT pre-select for any
+slant, quality, or how mockable a piece is — just report what is actually being
+published, right across the spectrum. "snippet" is 1-2
 sentences on what each article actually says, in neutral terms.
 "probability_pct" (0-100) is your best estimate Burnham is PM within 3 months;
 "one_line" is a dry one-sentence state of play.`;
@@ -584,13 +637,124 @@ async function judgeAndCurate(env, pool) {
   }
 }
 
+// Normalise an article URL into a dedup key: lowercase host, path without a
+// trailing slash, no query or hash — so http/https and tracking-param variants
+// of the same article collapse to one key. Returns null (never throws) for junk
+// or absent input, so URL-less articles can be filtered out safely.
+function normalizeUrl(raw) {
+  if (!raw || typeof raw !== "string") return null;
+  let u;
+  try {
+    u = new URL(raw);
+  } catch {
+    return null;
+  }
+  const host = u.hostname.toLowerCase();
+  const path = u.pathname.replace(/\/+$/, "");
+  return `${host}${path}`;
+}
+
+// Choose which pool articles the judge sees, biased toward those not shown before
+// so the panel rotates across cron cycles. `seenSet` holds normalised URLs already
+// in the archive.
+//
+// - When at least `panelSize` fresh URL-bearing articles exist, judge ONLY those —
+//   guaranteeing rotation.
+// - Otherwise (a thin news week) lead with the fresh ones and top up with
+//   already-seen items so the judge still sees a representative pool and the panel
+//   is never empty; some cards may then repeat, which honestly reflects a quiet week.
+//
+// Articles without a usable URL are treated as "seen" — never counted as fresh and
+// never used as a dedup key. The returned array is what the judge indexes into, so
+// callers MUST resolve selections against THIS array (see runPipeline), not the raw
+// pool — otherwise indices dereference the wrong article.
+function computeJudgePool(pool, seenSet, panelSize = PANEL_SIZE, poolTarget = POOL_TARGET) {
+  const seen = seenSet ?? new Set();
+  const unseen = pool.filter((a) => {
+    const key = normalizeUrl(a?.url);
+    return key !== null && !seen.has(key);
+  });
+  if (unseen.length >= panelSize) {
+    return unseen;
+  }
+  const unseenSet = new Set(unseen);
+  const seenItems = pool.filter((a) => !unseenSet.has(a));
+  return [...unseen, ...seenItems].slice(0, poolTarget);
+}
+
+// Prepend newly-shown articles to the archive, newest-first, deduped by normalised
+// URL. An already-archived URL is kept as first stored (the archive records what was
+// shown WHEN first shown), so a re-surfaced story never mutates or duplicates its
+// entry. URL-less shown articles are dropped (no dedup key). A null/undefined
+// existing archive is treated as empty, and the result is capped at `maxArchive`
+// keeping the newest entries.
+function appendToArchive(existing, shown, maxArchive = MAX_ARCHIVE) {
+  const archive = Array.isArray(existing) ? existing : [];
+  const have = new Set(
+    archive.map((a) => normalizeUrl(a?.url)).filter((k) => k !== null),
+  );
+  const shownAt = new Date().toISOString();
+  const fresh = [];
+  for (const a of shown ?? []) {
+    const key = normalizeUrl(a?.url);
+    if (key === null || have.has(key)) continue;
+    have.add(key);
+    fresh.push({
+      title: a.title,
+      url: a.url,
+      outlet: a.outlet,
+      date: a.date,
+      verdict: a.verdict,
+      caption: a.caption,
+      shown_at: shownAt,
+    });
+  }
+  return [...fresh, ...archive].slice(0, maxArchive);
+}
+
+// Slice a newest-first list into a page. `page` is clamped: non-numeric / 0 /
+// negative → 1; beyond the last page → the last page; an empty list → page 1 of 0.
+// The returned `page` is the clamped value so the client can build correct links.
+function paginate(items, page, pageSize = ARCHIVE_PAGE_SIZE) {
+  const list = Array.isArray(items) ? items : [];
+  const total = list.length;
+  const totalPages = Math.ceil(total / pageSize);
+  let p = Number.parseInt(page, 10);
+  if (!Number.isFinite(p) || p < 1) p = 1;
+  if (totalPages === 0) p = 1; // empty archive → page 1 of 0
+  else if (p > totalPages) p = totalPages;
+  const start = (p - 1) * pageSize;
+  return { page: p, pageSize, total, totalPages, items: list.slice(start, start + pageSize) };
+}
+
+// Handle /api/archive — a paginated, newest-first view of the archive. Mirrors the
+// other JSON endpoints: no security headers or Cache-Control (those attach only to
+// static assets), and degrades to a 200 empty archive on any error.
+async function handleArchive(env, req) {
+  const url = new URL(req.url);
+  const pageParam = url.searchParams.get("page");
+  try {
+    const kv = env.COMMENTARY_CACHE;
+    const archive = kv ? await kv.get(ARCHIVE_KEY, "json") : null;
+    return Response.json(paginate(archive, pageParam));
+  } catch (e) {
+    console.error("Archive error:", e);
+    return Response.json({ page: 1, pageSize: ARCHIVE_PAGE_SIZE, total: 0, totalPages: 0, items: [] });
+  }
+}
+
 // Named exports for unit testing. The Cloudflare runtime uses the default
 // export above; these expose the pipeline internals to the test suite without
 // changing runtime behaviour.
 export {
   handleCommentary,
   handleRefresh,
+  handleArchive,
   judgeAndCurate,
   extractText,
   refineWithFullText,
+  normalizeUrl,
+  computeJudgePool,
+  appendToArchive,
+  paginate,
 };

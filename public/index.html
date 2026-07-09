@@ -297,6 +297,27 @@
       margin: 0;
     }
 
+    /* Right-aligned link to the archive sub-page, on the papers-panel heading row. */
+    .archive-link {
+      margin-left: auto;
+      align-self: center;
+      font: 700 10px/1 'Space Mono', monospace;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      text-decoration: none;
+      color: var(--archive-red);
+      border: 1.5px solid var(--archive-red);
+      padding: 5px 10px;
+      white-space: nowrap;
+      transition: background 0.15s ease, color 0.15s ease;
+    }
+
+    .archive-link:hover,
+    .archive-link:focus-visible {
+      background: var(--archive-red);
+      color: var(--white);
+    }
+
     #articles {
       padding-top: 16px;
     }
@@ -613,6 +634,12 @@
         padding-bottom: 6px;
       }
 
+      .archive-link {
+        font-size: 8px;
+        letter-spacing: 0.08em;
+        padding: 4px 7px;
+      }
+
       .article-meta {
         font-size: 8px;
         letter-spacing: 0.08em;
@@ -711,6 +738,7 @@
         <h2>
           <span>Meanwhile, the papers say…</span>
           <span class="archive-badge" id="archive-badge"></span>
+          <a class="archive-link" href="/archive">Archive →</a>
         </h2>
         <div id="articles">
           <!-- Loading placeholders -->

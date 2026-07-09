@@ -111,7 +111,7 @@ sequenceDiagram
     W->>W: Save the finished panel to the cache
 ```
 
-**Stage 1 — the reporter (Perplexity).** Perplexity is an AI that can search the live web. The Worker asks it for a *fair, representative sample* of around nine recent articles about Burnham's chances — a spread across serious news, opinion, and lighter colour pieces. Crucially, it's told **not** to hunt for the silliest articles. The site's integrity depends on reflecting the real coverage, not a cherry-picked caricature.
+**Stage 1 — the reporter (Perplexity).** Perplexity is an AI that can search the live web. The Worker asks it for a *fair, representative sample* of around nine recent articles about Burnham's chances — a spread across serious news, opinion, and lighter colour pieces. It's asked to look right across the political and editorial spectrum — the sober broadsheets, the tabloids, the broadcasters, the outrage-driven and opinion outlets (the GB News end of things), and the small independents — balanced left, centre and right, so the sample isn't quietly skewed toward the calm middle. Crucially, though, it's still told **not** to hunt for the silliest articles, and never to invent one: it widens *where we look*, not *what we favour*. The site's integrity depends on reflecting the real coverage, not a cherry-picked caricature.
 
 **Stage 2 — the editor (Claude).** The pool of articles then goes to **Claude**, Anthropic's AI, acting as a dry, sardonic editor. Its job is to pick the best three to show and give each a one-word verdict:
 
@@ -136,6 +136,19 @@ The solution is a **cache**: a little memory (Cloudflare "KV") that stores the m
 So how does the cache stay fresh? A **clock** (a "cron trigger") wakes the Worker up **every six hours**, runs the full newsroom pipeline once, and tucks the new result into the cache. That means the expensive work happens four times a day, total — not once per visitor. Visitors always get a recent, pre-made answer in an instant.
 
 There's one more subtle touch. If the pipeline ever comes back *empty* (say Perplexity hiccups), the Worker remembers that emptiness for only two minutes instead of six hours — so a brief outage doesn't leave the site blank for a quarter of a day, but a flood of visitors during that window still can't each re-trigger the expensive pipeline.
+
+---
+
+## The archive — a memory that also stops repeats
+
+For a niche question like this one, the newspapers often say much the same thing two editions running. Left to itself, the newsroom would keep picking the same strongest stories every six hours, and the front page would look frozen even though the clock was ticking.
+
+So the site keeps a second, permanent memory: the **archive**. It's a running list, newest-first, of every article that has ever appeared on the panel — kept in the same Cloudflare KV store, but with no expiry. It does two jobs at once:
+
+- **It stops repeats.** Each time the clock fires, before handing the articles to the editor, the Worker sets aside the ones already in the archive and offers up the genuinely *new* coverage first. When there are at least three fresh stories, the panel is built entirely from them — so the front page visibly moves on. On a quiet news day with little new, it tops the pool back up with older pieces rather than show a bare panel, and honestly accepts that a card or two may repeat.
+- **It powers the archive page.** Because every shown article is filed away with the date it first appeared, the site can offer a separate **Archive** sub-page (linked from the "Meanwhile, the papers say…" heading) — a simple, paginated list, twenty clippings a page, newest first. It reuses the exact same article-card machinery as the front page, so a clipping looks identical whether it's today's news or a filed cutting.
+
+Only the six-hourly clock ever *writes* to the archive. That single-writer rule matters: if visitors could write to it too, two updates landing at once could quietly clobber each other. Keeping one writer sidesteps that entirely.
 
 ---
 
@@ -180,8 +193,9 @@ Testing is automated too: a suite of tests (run with `npm test`) checks the Work
 
 This document is the map. The detailed territory lives in:
 
-- **`src/worker.js`** — the Worker: the pipeline, the cache, the security headers.
+- **`src/worker.js`** — the Worker: the pipeline, the cache, the archive, the security headers.
 - **`public/index.html`** and **`public/app.js`** — the front page and its live behaviour.
+- **`public/archive.html`** and **`public/archive.js`** — the paginated archive sub-page.
 - **`REFERENCE/`** — how-it-works notes, the testing strategy, and environment setup.
 - **`SPECIFICATIONS/ARCHIVE/`** — the original phase-by-phase plans the site was built from.
 - **`README.md`** — the quick-start summary.
