@@ -37,7 +37,13 @@ Tests are **living specifications**. Before writing implementation:
 
 ### 2. High Coverage Goal
 
-Target: 95%+ lines/functions/statements, 90%+ branches
+Target: 95%+ lines/functions/statements, 90%+ branches — **enforced** for the
+Worker via `coverage.thresholds` in `vitest.config.js`, so `npm run test:coverage`
+(and any run with `--coverage`) fails if `src/**` drops below the bar. The `Tests`
+GitHub Actions workflow (`.github/workflows/test.yml`) runs this on every pull
+request to `main`, so a regression is caught before merge. The front-end modules
+(`public/*.js`) are outside the measured scope; they are guarded by the happy-dom
+render tests rather than a coverage number.
 
 Why high coverage?
 - Agents need clear examples of how code should behave
@@ -227,7 +233,8 @@ export function createMockReaderAPI() {
 
 ## Coverage Requirements
 
-**Overall Target:** 95%+ statements/functions/lines, 90%+ branches
+**Overall Target:** 95%+ statements/functions/lines, 90%+ branches — enforced for
+`src/**` by the thresholds in `vitest.config.js` (see "High Coverage Goal" above).
 
 **Per-File Requirements:**
 - Utils: 95%+ all metrics
@@ -322,9 +329,9 @@ Tests validate **correctness**, but don't guarantee:
 ---
 
 **Status:** A Vitest suite exists under `test/` — Worker handler tests in the
-node environment (using `global.fetch` stubs via `vi.stubGlobal`) and a
-front-end render guard in the happy-dom environment. Run it with `npm test`
-(or `npm run test:coverage`). `worker.js` line coverage is partial and climbs
-as the remaining pipeline paths gain tests; the generic examples above are
-illustrative and predate this project — they have not yet been reconciled to
-the actual Worker + front-end suite.
+node environment (using `global.fetch` stubs via `vi.stubGlobal`) and front-end
+render guards in the happy-dom environment. Run it with `npm test` (or `npm run
+test:coverage`). `worker.js` meets the enforced 95/90 bar; the front-end modules
+are guarded by the happy-dom render tests rather than a coverage number. The
+generic per-file examples above are illustrative and predate this project — the
+enforced floor is the global `src/**` threshold, not those per-file numbers.
