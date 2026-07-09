@@ -46,6 +46,16 @@ TEMPLATE-UPDATES/
 
 **When to apply:** After `2026-05-reduce-github-issue-bias` has landed. Apply if reviews are parking findings in "Your call" without a recommendation, creating GitHub Issues with inconsistent bodies, or handling partial confirmations by reading between the lines rather than following an explicit contract.
 
+### [2026-07-fan-out-review-synthesis/](./2026-07-fan-out-review-synthesis/)
+**What it rolls out:** Removes the multi-round "collaborative discussion" phase from `/review-pr-team` and `/review-spec`. Reviewer agents now fan out in parallel, report findings to the orchestrator, and the orchestrator deduplicates by `file:line` and reconciles severity disagreements itself — recording both positions where the reports don't settle one. Adds a findings contract (`file:line` + severity + evidence) to `.claude/agents/CLAUDE.md`, strips the `## Team Collaboration` section from all seven reviewer agents, and drops the now-unused `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` flag. Covers PR #56.
+
+**When to apply:** After `2026-04-pr-review-triage` has landed (the review skill files must exist). Apply if the derivative project's `/review-pr-team` or `/review-spec` still instruct reviewers to broadcast findings and debate severity — symptoms are reviews that run far longer than the advertised 2–7 minutes and discussion phases with no clear termination. Independent of the follow-through packets; can be applied before or after them. **Must be applied *before* `2026-07-read-only-reviewers`** — that packet's skill edits anchor on the parallel-spawn steps this one introduces. Apply the two back to back, in one sitting.
+
+### [2026-07-read-only-reviewers/](./2026-07-read-only-reviewers/)
+**What it rolls out:** Stops reviewer agents mutating the operator's working tree. Adds a read-only contract to `.claude/agents/CLAUDE.md` inherited by all ten reviewer agents, corrects the step-4 instruction that told five agents to read PR-changed files with the `Read` tool (which reads the working tree, not the PR — the contradiction that drove agents to `git checkout`), codifies `git fetch origin pull/<N>/head` + `git show FETCH_HEAD:<path>` as the correct read, and spawns all `/review-pr` and `/review-pr-team` reviewers with `isolation: "worktree"`. `/review-spec` is deliberately exempt. Covers PR #58.
+
+**When to apply:** Urgently, if the project's reviewer agents still say "Read full file context where needed using the Read tool". The bug it fixes silently moves you off your branch mid-review, so later commits miss the PR — a downstream project lost two commits to it before catching it by hand. Especially urgent if the project runs with permissive tool settings (`bypassPermissions`, `dontAsk`, or a broadened git allowlist), because then nothing prompts before the checkout. **Requires `2026-07-fan-out-review-synthesis` to have landed first.** Two of this packet's three skill edits anchor on the parallel-spawn steps that packet introduces (`review-pr-team` Step 1, `review-spec` Step 2); in a pre-fan-out project those steps still read `Create Agent Team` and there are no `Agent` spawn calls to attach `isolation: "worktree"` to. Apply the two back to back, in one sitting — see the ordering note in that packet.
+
 ---
 
 ## Authoring a new packet
