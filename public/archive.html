@@ -223,6 +223,45 @@
 
     #page-indicator { color: var(--muted); }
 
+    /* Verdict filter */
+    #archive-filter {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 20px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--divider);
+    }
+
+    .filter-chip {
+      font: 700 10px/1 'Space Mono', monospace;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      border: 1.5px solid var(--divider);
+      color: var(--muted);
+      transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+    }
+
+    .filter-chip[data-verdict="probing"] { color: var(--green); border-color: var(--green); }
+    .filter-chip[data-verdict="fixating"] { color: var(--amber-dark); border-color: var(--amber-dark); }
+
+    .filter-chip:hover { color: var(--ink); border-color: var(--ink); }
+
+    /* Active chip is filled, not just recoloured — a non-colour affordance that
+       survives colour-blindness and greyscale. */
+    .filter-chip.is-active {
+      color: var(--paper);
+      background: var(--ink);
+      border-color: var(--ink);
+    }
+
+    .chip-count { font-weight: 400; opacity: 0.75; }
+
     /* Footer */
     #page-footer {
       background: var(--ink);
@@ -270,9 +309,15 @@
     </header>
 
     <main id="archive-body">
+      <nav id="archive-filter" aria-label="Filter by verdict">
+        <a class="filter-chip" data-verdict="" href="/archive">All <span class="chip-count"></span></a>
+        <a class="filter-chip" data-verdict="probing" href="/archive?verdict=probing">Probing <span class="chip-count"></span></a>
+        <a class="filter-chip" data-verdict="noting" href="/archive?verdict=noting">Noted <span class="chip-count"></span></a>
+        <a class="filter-chip" data-verdict="fixating" href="/archive?verdict=fixating">Fixating <span class="chip-count"></span></a>
+      </nav>
       <div id="archive-status">Opening the filing cabinet…</div>
       <div id="archive-list"></div>
-      <nav id="archive-pagination" class="hide"></nav>
+      <nav id="archive-pagination" class="hide" aria-label="Archive pages"></nav>
     </main>
 
     <footer id="page-footer">
