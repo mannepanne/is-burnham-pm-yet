@@ -764,7 +764,9 @@ function paginate(items, page, pageSize = ARCHIVE_PAGE_SIZE) {
 function verdictCounts(archive) {
   const counts = { probing: 0, fixating: 0, noting: 0 };
   for (const a of Array.isArray(archive) ? archive : []) {
-    if (counts[a?.verdict] !== undefined) counts[a.verdict] += 1;
+    // Object.hasOwn (not `!== undefined`) so a stored verdict that happens to name
+    // a prototype member ("toString") can't slip past the guard and corrupt a tally.
+    if (Object.hasOwn(counts, a?.verdict)) counts[a.verdict] += 1;
   }
   return counts;
 }

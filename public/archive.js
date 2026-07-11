@@ -6,7 +6,8 @@ const FETCH_TIMEOUT = 15000; // 15s — the archive is a plain KV read, so this 
 
 // Concise labels for the verdict filter — deliberately NOT getVerdictLabel(), which
 // returns "Fixating on:" and would read wrong in a chip or the empty-state. Its keys
-// double as the client-side allowlist for the verdict query param.
+// double as the client-side allowlist for the verdict query param, and must stay in
+// step with VALID_VERDICTS in worker.js (and the static chips in archive.html).
 const FILTER_LABELS = { probing: 'Probing', noting: 'Noted', fixating: 'Fixating' };
 
 // Read the requested page from the query string; clamp to a sane minimum. The

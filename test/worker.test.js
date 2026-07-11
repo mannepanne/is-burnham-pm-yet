@@ -769,13 +769,15 @@ describe('handleArchive', () => {
       { title: 'ok', url: 'https://news.example/ok', verdict: 'probing' },
       { title: 'legacy', url: 'https://news.example/legacy' }, // no verdict
       { title: 'weird', url: 'https://news.example/weird', verdict: 'musing' }, // unknown
+      { title: 'proto', url: 'https://news.example/proto', verdict: 'toString' }, // prototype member
     ];
     const env = { COMMENTARY_CACHE: { get: async () => withStray } };
     const probing = await (await handleArchive(env, archiveReq('?verdict=probing'))).json();
     expect(probing.total).toBe(1);
     const body = await (await handleArchive(env, archiveReq())).json();
-    expect(body.total).toBe(3); // All still includes the stray records
-    expect(body.counts).toEqual({ probing: 1, fixating: 0, noting: 0 }); // but counts don't
+    expect(body.total).toBe(4); // All still includes the stray records
+    // ...but counts stay clean numbers — the prototype-member verdict can't corrupt them.
+    expect(body.counts).toEqual({ probing: 1, fixating: 0, noting: 0 });
   });
 
   it('is routed by the top-level fetch handler', async () => {
