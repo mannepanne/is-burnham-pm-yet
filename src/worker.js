@@ -1,5 +1,5 @@
-// Cloudflare Worker for Andy Burnham PM Tracker
-// Handles /api/commentary endpoint with cron-triggered cache refresh
+// ABOUT: Cloudflare Worker for the Andy Burnham PM tracker.
+// ABOUT: Serves /api/commentary and /api/archive, refreshing the KV cache on a cron trigger.
 
 // Configuration
 const JUDGE_MODEL = "claude-haiku-4-5";
@@ -107,6 +107,8 @@ AI tells:
   scrutiny an uncontested handover skips"). Name a concrete thing a person did.
 - Reach-for-it satire vocabulary: no "optics", "theatre", "coronation",
   "spectacle", "narrative", "item". If it wouldn't be said in a pub, cut it.
+  (Some of these words appear above to describe what fixation looks like — that is
+  fine; the ban is only on putting them in the caption you write.)
 - Hollow kickers: no lone adverb or symmetry trick doing the joke's work
   ("...Overwhelmingly.", "...the unsurprising.", "...no twist.").
 - Prefer the physical and specific over the abstract ("before stepping through the
