@@ -116,7 +116,7 @@ sequenceDiagram
 **Stage 2 — the editor (Claude).** The pool of articles then goes to **Claude**, Anthropic's AI, acting as a dry, sardonic editor. Its job is to pick the best three to show and give each a one-word verdict:
 
 - **Probing** — the article engages with what actually matters (what Burnham would *do* in office, the legitimacy of a mid-term handover).
-- **Fixating** — it dwells on froth: his coat, his haircut, a "secret meeting" that was really just a diary appointment.
+- **Fixating** — it dwells on froth: his coat, his haircut, a "secret meeting" that was really just a diary appointment. The caption openly mocks the coverage for it.
 - **Noting** — a plain, factual update, neither substantive nor silly.
 
 The editor is given careful instructions and real worked examples so its judgement is consistent and fair — it's told to reflect the coverage honestly, never to invent froth or force a joke. The whole personality of the site lives in this one set of instructions (the "prompt").
