@@ -1,6 +1,6 @@
 # Archive type filter
 
-**Status:** Reviewed (`/review-spec` — APPROVED WITH CONDITIONS; conditions folded in below)
+**Status:** Implemented and merged (PR #30). Spec reviewed via `/review-spec` (APPROVED WITH CONDITIONS; conditions folded in below); implementation reviewed via `/review-pr-team` (APPROVED).
 **Date:** 2026-07-11
 **Branch:** `feature/archive-filter`
 **Dependencies:** None — extends the existing archive endpoint and page.
