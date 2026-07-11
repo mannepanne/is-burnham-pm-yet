@@ -4,6 +4,11 @@ import { createArticleCard } from './app.js';
 
 const FETCH_TIMEOUT = 15000; // 15s — the archive is a plain KV read, so this is generous
 
+// Concise labels for the verdict filter — deliberately NOT getVerdictLabel(), which
+// returns "Fixating on:" and would read wrong in a chip or the empty-state. Its keys
+// double as the client-side allowlist for the verdict query param.
+const FILTER_LABELS = { probing: 'Probing', noting: 'Noted', fixating: 'Fixating' };
+
 // Read the requested page from the query string; clamp to a sane minimum. The
 // server clamps authoritatively and echoes back the effective page, which is what
 // the pagination links are built from.
@@ -11,6 +16,17 @@ function requestedPage() {
   const raw = new URLSearchParams(window.location.search).get('page');
   const n = Number.parseInt(raw, 10);
   return Number.isFinite(n) && n > 0 ? n : 1;
+}
+
+// Read the requested verdict filter from the query string, lower-cased and checked
+// against the allowlist; anything else is null (the "All" view). Used ONLY to build
+// the outbound fetch URL — the active-chip highlight and empty-state label render
+// from the server-echoed data.verdict instead, exactly as pagination renders from
+// the server's clamped page.
+function requestedVerdict() {
+  const raw = new URLSearchParams(window.location.search).get('verdict');
+  const v = (raw || '').toLowerCase();
+  return FILTER_LABELS[v] ? v : null;
 }
 
 // Format an ISO 8601 shown_at into an unambiguous filing date. The per-article
@@ -25,11 +41,15 @@ function formatFiled(iso) {
   });
 }
 
-async function fetchArchive(page) {
+async function fetchArchive(page, verdict) {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
+  // Add the verdict param only when set — an empty &verdict= would dirty the "All"
+  // URLs and break the pagination-href expectations.
+  const params = new URLSearchParams({ page: String(page) });
+  if (verdict) params.set('verdict', verdict);
   try {
-    const res = await fetch(`/api/archive?page=${page}`, { signal: controller.signal });
+    const res = await fetch(`/api/archive?${params}`, { signal: controller.signal });
     clearTimeout(id);
     if (!res.ok) throw new Error(`Archive API error: ${res.status}`);
     return await res.json();
@@ -59,13 +79,17 @@ function renderPagination(data) {
   nav.classList.remove('hide');
 
   const { page, totalPages } = data;
+  const verdict = data.verdict;
 
   const link = (label, targetPage, enabled) => {
     const el = document.createElement('a');
     el.className = 'page-link' + (enabled ? '' : ' disabled');
     el.textContent = label;
     if (enabled) {
-      el.href = `/archive?page=${targetPage}`;
+      // Preserve the active filter across pages; keep All's URLs param-clean.
+      const params = new URLSearchParams({ page: String(targetPage) });
+      if (verdict) params.set('verdict', verdict);
+      el.href = `/archive?${params}`;
     } else {
       el.setAttribute('aria-disabled', 'true');
     }
@@ -109,9 +133,30 @@ function updateCount(total) {
   countEl.textContent = total === 1 ? '1 clipping filed' : `${total} clippings filed`;
 }
 
+// Populate the filter chips with whole-archive counts and mark the active one. The
+// counts come from data.counts (filter-independent), so the "All" chip shows their
+// sum — the true count of verdict-bearing clippings — not the filtered page total.
+// The active chip is driven by the server-echoed activeVerdict (null → All).
+function renderFilter(counts, activeVerdict) {
+  const nav = document.getElementById('archive-filter');
+  if (!nav) return;
+  const c = counts || { probing: 0, fixating: 0, noting: 0 };
+  const total = (c.probing || 0) + (c.fixating || 0) + (c.noting || 0);
+  nav.querySelectorAll('.filter-chip').forEach((chip) => {
+    const v = chip.dataset.verdict; // '' for the All chip
+    const countEl = chip.querySelector('.chip-count');
+    if (countEl) countEl.textContent = v === '' ? total : (c[v] ?? 0);
+    const isActive = (activeVerdict ?? '') === v;
+    chip.classList.toggle('is-active', isActive);
+    if (isActive) chip.setAttribute('aria-current', 'page');
+    else chip.removeAttribute('aria-current');
+  });
+}
+
 async function init() {
   const page = requestedPage();
-  const data = await fetchArchive(page);
+  const verdict = requestedVerdict();
+  const data = await fetchArchive(page, verdict);
 
   if (!data) {
     setStatus('The archive is briefly unavailable. Please try again shortly.');
@@ -119,10 +164,13 @@ async function init() {
     return;
   }
 
+  renderFilter(data.counts, data.verdict);
   updateCount(data.total);
 
   if (!data.items || data.items.length === 0) {
-    setStatus('Nothing filed yet — check back after the next edition.');
+    setStatus(data.verdict
+      ? `Nothing filed under ${FILTER_LABELS[data.verdict]} yet.`
+      : 'Nothing filed yet — check back after the next edition.');
     renderPagination(data);
     return;
   }
@@ -142,4 +190,7 @@ if (typeof document !== 'undefined' && document.getElementById('archive-list')) 
   }
 }
 
-export { formatFiled, requestedPage, init, renderList, renderPagination };
+export {
+  formatFiled, requestedPage, requestedVerdict, init, renderList,
+  renderPagination, renderFilter, fetchArchive, FILTER_LABELS,
+};

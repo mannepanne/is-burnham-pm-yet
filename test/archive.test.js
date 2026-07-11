@@ -2,17 +2,32 @@
 // ABOUT: Card XSS-escaping is covered via createArticleCard in render.test.js.
 // @vitest-environment happy-dom
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { formatFiled, requestedPage, init, renderList, renderPagination } from '../public/archive.js';
+import {
+  formatFiled, requestedPage, requestedVerdict, init, renderList,
+  renderPagination, renderFilter, fetchArchive,
+} from '../public/archive.js';
 
 // Rebuild the archive page's DOM skeleton before each render test so init() and
-// the render helpers have the elements they target.
+// the render helpers have the elements they target. Mirrors archive.html, including
+// the verdict filter nav.
 function setupDom() {
   document.body.innerHTML = `
     <span id="archive-count"></span>
+    <nav id="archive-filter" aria-label="Filter by verdict">
+      <a class="filter-chip" data-verdict="" href="/archive">All <span class="chip-count"></span></a>
+      <a class="filter-chip" data-verdict="probing" href="/archive?verdict=probing">Probing <span class="chip-count"></span></a>
+      <a class="filter-chip" data-verdict="noting" href="/archive?verdict=noting">Noted <span class="chip-count"></span></a>
+      <a class="filter-chip" data-verdict="fixating" href="/archive?verdict=fixating">Fixating <span class="chip-count"></span></a>
+    </nav>
     <div id="archive-status"></div>
     <div id="archive-list"></div>
     <nav id="archive-pagination" class="hide"></nav>
   `;
+}
+
+// Find a filter chip by its data-verdict ('' = All).
+function chip(verdict) {
+  return document.querySelector(`#archive-filter .filter-chip[data-verdict="${verdict}"]`);
 }
 
 describe('formatFiled', () => {
@@ -50,6 +65,102 @@ describe('requestedPage', () => {
     expect(requestedPage()).toBe(1);
     setSearch('?page=banana');
     expect(requestedPage()).toBe(1);
+  });
+});
+
+describe('requestedVerdict', () => {
+  const setSearch = (search) => {
+    window.history.replaceState({}, '', `/archive.html${search}`);
+  };
+  afterEach(() => setSearch(''));
+
+  it('reads a valid verdict from the query string', () => {
+    setSearch('?verdict=fixating');
+    expect(requestedVerdict()).toBe('fixating');
+  });
+
+  it('lower-cases the incoming verdict', () => {
+    setSearch('?verdict=Probing');
+    expect(requestedVerdict()).toBe('probing');
+  });
+
+  it('returns null for absent or unknown verdicts', () => {
+    setSearch('');
+    expect(requestedVerdict()).toBeNull();
+    setSearch('?verdict=bogus');
+    expect(requestedVerdict()).toBeNull();
+  });
+});
+
+describe('archive verdict filter', () => {
+  beforeEach(() => {
+    setupDom();
+    window.history.replaceState({}, '', '/archive');
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    window.history.replaceState({}, '', '/archive');
+  });
+
+  const counts = { probing: 2, fixating: 3, noting: 1 };
+
+  it('populates chip counts, with All showing the sum', () => {
+    renderFilter(counts, null);
+    expect(chip('').querySelector('.chip-count').textContent).toBe('6');
+    expect(chip('probing').querySelector('.chip-count').textContent).toBe('2');
+    expect(chip('fixating').querySelector('.chip-count').textContent).toBe('3');
+    expect(chip('noting').querySelector('.chip-count').textContent).toBe('1');
+  });
+
+  it('marks the All chip active when no verdict is set', () => {
+    renderFilter(counts, null);
+    expect(chip('').classList.contains('is-active')).toBe(true);
+    expect(chip('').getAttribute('aria-current')).toBe('page');
+    expect(chip('fixating').classList.contains('is-active')).toBe(false);
+    expect(chip('fixating').hasAttribute('aria-current')).toBe(false);
+  });
+
+  it('marks the matching chip active from the server-echoed verdict', () => {
+    renderFilter(counts, 'fixating');
+    expect(chip('fixating').classList.contains('is-active')).toBe(true);
+    expect(chip('fixating').getAttribute('aria-current')).toBe('page');
+    expect(chip('').classList.contains('is-active')).toBe(false);
+  });
+
+  it('sends the verdict param only when a filter is active', async () => {
+    const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({}) }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await fetchArchive(1, null);
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/archive?page=1');
+
+    await fetchArchive(2, 'fixating');
+    expect(fetchMock.mock.calls[1][0]).toBe('/api/archive?page=2&verdict=fixating');
+  });
+
+  it('preserves the active verdict in pagination links; All links stay param-clean', () => {
+    renderPagination({ page: 2, pageSize: 20, total: 60, totalPages: 3, items: [], verdict: 'fixating' });
+    let links = document.getElementById('archive-pagination').querySelectorAll('.page-link');
+    expect(links[0].getAttribute('href')).toBe('/archive?page=1&verdict=fixating');
+    expect(links[1].getAttribute('href')).toBe('/archive?page=3&verdict=fixating');
+
+    renderPagination({ page: 2, pageSize: 20, total: 60, totalPages: 3, items: [], verdict: null });
+    links = document.getElementById('archive-pagination').querySelectorAll('.page-link');
+    expect(links[0].getAttribute('href')).toBe('/archive?page=1');
+  });
+
+  it('shows a type-specific empty state when a filter has no matches', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ page: 1, pageSize: 20, total: 0, totalPages: 0, items: [], verdict: 'probing', counts }),
+    })));
+
+    await init();
+
+    expect(document.getElementById('archive-status').textContent).toBe('Nothing filed under Probing yet.');
+    // Counts still render on the chips even when the filtered list is empty.
+    expect(chip('probing').querySelector('.chip-count').textContent).toBe('2');
+    expect(chip('probing').classList.contains('is-active')).toBe(true);
   });
 });
 

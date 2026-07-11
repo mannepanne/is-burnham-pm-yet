@@ -23,6 +23,10 @@ const ARCHIVE_KEY = "archive:v1";
 const ARCHIVE_PAGE_SIZE = 20;
 const MAX_ARCHIVE = 1000; // cap the stored array; oldest entries trimmed
 
+// The three verdict types the judge may assign. Single source of truth, shared by
+// the judge/refinement validation and the archive type filter.
+const VALID_VERDICTS = new Set(["probing", "fixating", "noting"]);
+
 // Judge prompt
 const JUDGE_PROMPT = `You are the editor of a dry, sardonic site that tracks whether Andy Burnham has
 become UK Prime Minister. You are honest about the British press: where coverage
@@ -456,8 +460,6 @@ Articles to refine:`;
       .replace(/```json|```/g, "")
       .trim();
 
-    const VERDICTS = new Set(["probing", "fixating", "noting"]);
-    
     try {
       const parsed = JSON.parse(text);
       const refined = parsed.refined ?? [];
@@ -469,7 +471,7 @@ Articles to refine:`;
           Number.isInteger(ref.index) && 
           ref.index >= 0 && 
           ref.index < refinedArticles.length &&
-          VERDICTS.has(ref.verdict)
+          VALID_VERDICTS.has(ref.verdict)
         ) {
           refinedArticles[ref.index] = {
             ...refinedArticles[ref.index],
@@ -644,15 +646,13 @@ async function judgeAndCurate(env, pool) {
     .replace(/```json|```/g, "")
     .trim();
 
-  const VERDICTS = new Set(["probing", "fixating", "noting"]);
-
   try {
     const parsed = JSON.parse(text);
     const selected = (parsed.selected ?? [])
       .filter((s) => Number.isInteger(s.i) && pool[s.i])
       .map((s) => ({
         i: s.i, 
-        verdict: VERDICTS.has(s.verdict) ? s.verdict : "noting", 
+        verdict: VALID_VERDICTS.has(s.verdict) ? s.verdict : "noting", 
         caption: s.caption ?? ""
       }))
       .slice(0, PANEL_SIZE);
@@ -758,19 +758,44 @@ function paginate(items, page, pageSize = ARCHIVE_PAGE_SIZE) {
   return { page: p, pageSize, total, totalPages, items: list.slice(start, start + pageSize) };
 }
 
-// Handle /api/archive — a paginated, newest-first view of the archive. Mirrors the
+// Tally per-verdict totals across the whole archive. These describe the mix of the
+// archive itself, so they are filter-independent — computed before any filtering
+// and returned on every response to drive the front-end filter chips.
+function verdictCounts(archive) {
+  const counts = { probing: 0, fixating: 0, noting: 0 };
+  for (const a of Array.isArray(archive) ? archive : []) {
+    if (counts[a?.verdict] !== undefined) counts[a.verdict] += 1;
+  }
+  return counts;
+}
+
+// Handle /api/archive — a paginated, newest-first view of the archive, optionally
+// filtered to a single verdict via ?verdict=probing|fixating|noting. Mirrors the
 // other JSON endpoints: no security headers or Cache-Control (those attach only to
 // static assets), and degrades to a 200 empty archive on any error.
+//
+// `verdict` is untrusted: lower-cased, then allowlisted against VALID_VERDICTS;
+// anything else means "no filter" (All), echoed back as null. It is computed
+// outside the try so the catch path can echo it too. Filtering happens before
+// paginate, so filtered total/totalPages/empty-state fall out correctly. `counts`
+// always reflects the whole archive, unaffected by the active filter.
 async function handleArchive(env, req) {
   const url = new URL(req.url);
   const pageParam = url.searchParams.get("page");
+  const raw = (url.searchParams.get("verdict") || "").toLowerCase();
+  const verdict = VALID_VERDICTS.has(raw) ? raw : null;
   try {
     const kv = env.COMMENTARY_CACHE;
-    const archive = kv ? await kv.get(ARCHIVE_KEY, "json") : null;
-    return Response.json(paginate(archive, pageParam));
+    const archive = (kv ? await kv.get(ARCHIVE_KEY, "json") : null) ?? [];
+    const counts = verdictCounts(archive);
+    const filtered = verdict ? archive.filter((a) => a?.verdict === verdict) : archive;
+    return Response.json({ ...paginate(filtered, pageParam), verdict, counts });
   } catch (e) {
     console.error("Archive error:", e);
-    return Response.json({ page: 1, pageSize: ARCHIVE_PAGE_SIZE, total: 0, totalPages: 0, items: [] });
+    return Response.json({
+      page: 1, pageSize: ARCHIVE_PAGE_SIZE, total: 0, totalPages: 0, items: [],
+      verdict, counts: { probing: 0, fixating: 0, noting: 0 },
+    });
   }
 }
 

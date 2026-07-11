@@ -682,7 +682,10 @@ describe('handleArchive', () => {
     const env = { COMMENTARY_CACHE: { get: async () => null } };
     const res = await handleArchive(env, archiveReq());
     const body = await res.json();
-    expect(body).toEqual({ page: 1, pageSize: 20, total: 0, totalPages: 0, items: [] });
+    expect(body).toEqual({
+      page: 1, pageSize: 20, total: 0, totalPages: 0, items: [],
+      verdict: null, counts: { probing: 0, fixating: 0, noting: 0 },
+    });
   });
 
   it('returns an empty archive when there is no KV binding (local dev)', async () => {
@@ -691,12 +694,88 @@ describe('handleArchive', () => {
     expect(body.total).toBe(0);
   });
 
-  it('degrades to a 200 empty archive if the KV read throws', async () => {
+  it('degrades to a 200 empty archive if the KV read throws, echoing verdict + zeroed counts', async () => {
     const env = { COMMENTARY_CACHE: { get: async () => { throw new Error('kv down'); } } };
-    const res = await handleArchive(env, archiveReq());
+    const res = await handleArchive(env, archiveReq('?verdict=fixating'));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.items).toEqual([]);
+    expect(body.verdict).toBe('fixating');
+    expect(body.counts).toEqual({ probing: 0, fixating: 0, noting: 0 });
+  });
+
+  // A small mixed archive to exercise the verdict filter + counts. Order is
+  // newest-first, as stored.
+  const mixedArchive = [
+    { title: 'p1', url: 'https://news.example/p1', verdict: 'probing' },
+    { title: 'f1', url: 'https://news.example/f1', verdict: 'fixating' },
+    { title: 'n1', url: 'https://news.example/n1', verdict: 'noting' },
+    { title: 'f2', url: 'https://news.example/f2', verdict: 'fixating' },
+    { title: 'p2', url: 'https://news.example/p2', verdict: 'probing' },
+  ];
+  const mixedEnv = { COMMENTARY_CACHE: { get: async () => mixedArchive } };
+
+  it('filters to a single verdict, newest-first, with filtered totals', async () => {
+    const body = await (await handleArchive(mixedEnv, archiveReq('?verdict=fixating'))).json();
+    expect(body.verdict).toBe('fixating');
+    expect(body.total).toBe(2);
+    expect(body.items.map((a) => a.title)).toEqual(['f1', 'f2']);
+  });
+
+  it('normalises the verdict param case', async () => {
+    const body = await (await handleArchive(mixedEnv, archiveReq('?verdict=Fixating'))).json();
+    expect(body.verdict).toBe('fixating');
+    expect(body.total).toBe(2);
+  });
+
+  it('treats a missing or unknown verdict as no filter (All), echoing null', async () => {
+    const all = await (await handleArchive(mixedEnv, archiveReq())).json();
+    expect(all.verdict).toBeNull();
+    expect(all.total).toBe(5);
+    const bogus = await (await handleArchive(mixedEnv, archiveReq('?verdict=bogus'))).json();
+    expect(bogus.verdict).toBeNull();
+    expect(bogus.total).toBe(5);
+  });
+
+  it('returns whole-archive counts, identical across filtered and unfiltered requests', async () => {
+    const all = await (await handleArchive(mixedEnv, archiveReq())).json();
+    const filtered = await (await handleArchive(mixedEnv, archiveReq('?verdict=noting'))).json();
+    expect(all.counts).toEqual({ probing: 2, fixating: 2, noting: 1 });
+    expect(filtered.counts).toEqual(all.counts); // filter never changes the counts
+  });
+
+  it('paginates within the filtered set', async () => {
+    const many = Array.from({ length: 25 }, (_, i) => ({
+      title: `f${i}`, url: `https://news.example/f${i}`, verdict: 'fixating',
+    })).concat([{ title: 'p', url: 'https://news.example/p', verdict: 'probing' }]);
+    const env = { COMMENTARY_CACHE: { get: async () => many } };
+    const body = await (await handleArchive(env, archiveReq('?verdict=fixating&page=2'))).json();
+    expect(body.total).toBe(25); // filtered count, not the 26 stored
+    expect(body.totalPages).toBe(2);
+    expect(body.page).toBe(2);
+    expect(body.items).toHaveLength(5);
+  });
+
+  it('returns an empty filtered set but still populates counts', async () => {
+    const noProbing = { COMMENTARY_CACHE: { get: async () => [mixedArchive[1], mixedArchive[3]] } };
+    const body = await (await handleArchive(noProbing, archiveReq('?verdict=probing'))).json();
+    expect(body.total).toBe(0);
+    expect(body.items).toEqual([]);
+    expect(body.counts).toEqual({ probing: 0, fixating: 2, noting: 0 });
+  });
+
+  it('excludes records with a missing or unknown verdict from filters and counts', async () => {
+    const withStray = [
+      { title: 'ok', url: 'https://news.example/ok', verdict: 'probing' },
+      { title: 'legacy', url: 'https://news.example/legacy' }, // no verdict
+      { title: 'weird', url: 'https://news.example/weird', verdict: 'musing' }, // unknown
+    ];
+    const env = { COMMENTARY_CACHE: { get: async () => withStray } };
+    const probing = await (await handleArchive(env, archiveReq('?verdict=probing'))).json();
+    expect(probing.total).toBe(1);
+    const body = await (await handleArchive(env, archiveReq())).json();
+    expect(body.total).toBe(3); // All still includes the stray records
+    expect(body.counts).toEqual({ probing: 1, fixating: 0, noting: 0 }); // but counts don't
   });
 
   it('is routed by the top-level fetch handler', async () => {
