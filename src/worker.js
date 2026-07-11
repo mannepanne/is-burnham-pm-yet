@@ -80,28 +80,54 @@ PRINCIPLES — read carefully, they define the site's integrity:
   panel.
 - Judge only what each snippet supports. Invent nothing.
 
-STEP 3 — For each SELECTED article, write a caption of at most 8 words:
-- "probing": serious and precise — name the substantive thing it engages with.
-- "fixating": sharp and scathing — expose WHY the fixation is absurd, don't just
-  name it. Real bite is welcome. Aim it squarely at the coverage's choices and
-  framing — the daft news judgement, the inflated drama, the irrelevant hook —
-  never at anyone's character, appearance, or protected traits, and never as a
-  partisan verdict on a real person. The funniest captions catch the gap between
-  the breathless treatment and the trivial substance.
-- "noting": a plain, neutral few words describing what the piece is — no wit, no
-  scorn, no praise. Always write a short factual descriptor (e.g. "Routine
-  conference-season profile."); never leave it blank.
+STEP 3 — For each SELECTED article, write a caption. Hard limit of 15 words —
+this is a ceiling, NOT a target; most captions should be far shorter. Register by
+verdict:
+- "probing": serious, precise and honest, with a dry edge at most. Name the
+  substantive thing the piece actually engages with. This is the site's credible
+  register — the credit has to land read straight; never sarcastic.
+- "fixating": openly mocking — ridicule the coverage, don't just diagnose it.
+  Deadpan contempt and a raised eyebrow at the newsroom are fair game; twist the
+  knife on the daft news judgement. Aim it squarely at the coverage's choices and
+  framing — the inflated drama, the irrelevant hook, the froth promoted to
+  front-page news — never at anyone's character, appearance, or protected traits,
+  and never as a partisan verdict on a real person. The best captions expose the
+  gap between the breathless treatment and the nothing underneath.
+- "noting": deadpan and dry — a flat, factual descriptor delivered with a straight
+  face. Any humour is understatement from stating the obvious plainly; never a
+  tacked-on ironic kicker, no scorn, no praise. Say what the piece is; never leave
+  it blank.
 
-CALIBRATION — real examples with the verdict and caption to aim for. Match this
-bar; do not reuse these captions verbatim.
-- "Analysis: Everything points to Burnham becoming PM within weeks" (BBC)
-  → "probing": "Party mechanics and a realistic transition timeline."
-- "Andy Burnham holds secret meeting with outgoing PM Keir Starmer" (BBC)
-  → "fixating": "A diary appointment, reported as espionage." (a routine handover
-  meeting inflated into 'secret' intrigue — Westminster theatre, not news.)
-- "Andy Burnham, likely the UK's next PM, has been critical of President Trump"
-  (CBS) → "fixating": "Criticising Trump, somehow spun into a liability." (the
-  story's relevance hangs on a tangential foreign hook, not on his prospects.)
+VOICE — write like a sharp human sub-editor, not a caption generator. Avoid these
+AI tells:
+- The comma-pivot reframe: "[small thing], [passive verb] as [grand thing]" (e.g.
+  "a meeting, reported as espionage"). It is the most overused AI-wit formula — use
+  it at most once across the whole panel, ideally never.
+- Abstract-noun openers: don't start on a nominalisation + relative clause ("The
+  scrutiny an uncontested handover skips"). Name a concrete thing a person did.
+- Reach-for-it satire vocabulary: no "optics", "theatre", "coronation",
+  "spectacle", "narrative", "item". If it wouldn't be said in a pub, cut it.
+- Hollow kickers: no lone adverb or symmetry trick doing the joke's work
+  ("...Overwhelmingly.", "...the unsurprising.", "...no twist.").
+- Prefer the physical and specific over the abstract ("before stepping through the
+  No 10 door" beats "before the keys").
+- Vary the sentence shape — a flat statement, a question, a dry aside. Don't let
+  every caption share one skeleton. Read it aloud; if it sounds generated, redo it.
+
+CALIBRATION — real examples showing the target register and voice. Match this bar;
+never reuse these captions verbatim.
+- "UK's likely next PM, Andy Burnham, says he wants to put more pressure on Israel"
+  (Reuters) → "fixating": "He talks Israel; the story is somehow about Downing
+  Street." (a routine policy line framed as proof of his inevitability.)
+- "To Andy Burnham, first of all, first piece of advice" (Theresa May clip)
+  → "fixating": "Since when is Theresa May offering advice a headline?" (a throwaway
+  conference soundbite inflated into a story.)
+- "The UK was too slow to call for a ceasefire, Andy Burnham tells the Guardian"
+  (Guardian) → "probing": "Setting up a Gaza reversal before stepping through the
+  No 10 door." (engages with what he would actually change in office.)
+- "Andy Burnham moves closer to leadership after overwhelming MP backing" (Arise)
+  → "noting": "Labour MPs line up behind the one name available." (a flat, factual
+  update, reported straight.)
 
 Respond with ONLY minified JSON, no prose, no markdown fences:
 {"selected":[{"i":number,"verdict":"probing"|"fixating"|"noting","caption":string}]}
@@ -383,7 +409,10 @@ you have the complete article.
 For each article, return:
 - index: the original index
 - verdict: keep or change from the original (probing/fixating/noting)
-- caption: refined caption based on full text (max 8 words)
+- caption: refined caption based on full text (hard limit 15 words, a ceiling not
+  a target — keep it tight). Keep the same voice: openly mocking for "fixating",
+  serious for "probing", deadpan for "noting", and no AI tells (no comma-pivot
+  "small thing, reported as grand thing" reframes, no abstract-noun openers).
 
 Only refine if the full text changes your assessment. If the snippet-based
 judgment still holds, keep the original verdict and caption.
