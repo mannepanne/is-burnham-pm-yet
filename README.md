@@ -10,11 +10,11 @@ A one-page website that answers a single binary question and contrasts the calm,
 
 ## Features
 
-- **Hero answer** from Wikidata SPARQL (client-side, no server dependency)
+- **Hero answer** — a fixed "Yes": Andy Burnham is Prime Minister, so the question is settled and the live Wikidata SPARQL check has been retired (a `?force=no` override still previews the "Not yet" state)
 - **Probability readout** from Perplexity Sonar API via Worker
 - **Press panel** with articles judged and curated by Claude, sampled across the political spectrum
 - **Archive** sub-page — a paginated, newest-first record of every article shown, which also rotates the front page away from repeats
-- **States**: loading, NOT YET, YES
+- **States**: loading, YES (default), NOT YET (via override)
 - **Caching** via Workers KV with cron trigger
 
 ---

@@ -4,15 +4,10 @@
     // Configuration
     // ========================================
     const BASE_PM_COUNT = 6;
-    const WIKIDATA_QUERY = `
-      SELECT ?pmLabel WHERE {
-        wd:Q145 wdt:P6 ?pm .
-        SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
-      }
-    `;
-    const WIKIDATA_TIMEOUT = 10000; // 10 seconds timeout
-    const WIKIDATA_RETRY_DELAY = 3000; // 3 seconds between retries
-    const WIKIDATA_MAX_RETRIES = 2; // Max 2 retries
+    // Andy Burnham is Prime Minister. The question is settled, so the answer is
+    // a fixed "Yes" — the live Wikidata scoreboard check has been retired. Flip
+    // this single constant to reverse the verdict should the world ever oblige.
+    const DEFAULT_ANSWER_YES = true;
 
     // ========================================
     // State Management
@@ -27,7 +22,6 @@
 
     let currentState = states.LOADING;
     let pmCount = BASE_PM_COUNT;
-    let lastWikidataCheck = null;
 
     // ========================================
     // Canned Fallback Trio (from handoff)
@@ -67,16 +61,6 @@
         year: 'numeric'
       };
       return date.toLocaleDateString('en-GB', options);
-    }
-
-    function encodeSPARQL(query) {
-      return encodeURIComponent(query);
-    }
-
-    function isBurnhamPM(labels) {
-      return labels.some(label => 
-        label && label.toLowerCase().includes('burnham')
-      );
     }
 
     const LOADING_WORDS = [
@@ -125,62 +109,6 @@
     // ========================================
     // Data Fetching
     // ========================================
-    // Helper to add timeout to fetch
-    async function fetchWithTimeout(url, options, timeout) {
-      const controller = new AbortController();
-      const id = setTimeout(() => controller.abort(), timeout);
-      
-      try {
-        const response = await fetch(url, {
-          ...options,
-          signal: controller.signal
-        });
-        clearTimeout(id);
-        return response;
-      } catch (error) {
-        clearTimeout(id);
-        throw error;
-      }
-    }
-
-    async function fetchWikidataAnswer() {
-      let lastError = null;
-      
-      for (let attempt = 0; attempt <= WIKIDATA_MAX_RETRIES; attempt++) {
-        try {
-          const encodedQuery = encodeSPARQL(WIKIDATA_QUERY);
-          const url = `https://query.wikidata.org/sparql?format=json&query=${encodedQuery}`;
-          
-          const response = await fetchWithTimeout(url, {
-            headers: {
-              'Accept': 'application/sparql-results+json'
-            }
-          }, WIKIDATA_TIMEOUT);
-
-          if (!response.ok) {
-            throw new Error(`Wikidata HTTP error: ${response.status}`);
-          }
-
-          const data = await response.json();
-          const labels = data.results?.bindings?.map(b => b.pmLabel?.value) || [];
-          lastWikidataCheck = new Date();
-          return isBurnhamPM(labels);
-          
-        } catch (error) {
-          lastError = error;
-          console.warn(`Wikidata fetch attempt ${attempt + 1} failed:`, error);
-          
-          if (attempt < WIKIDATA_MAX_RETRIES) {
-            await new Promise(resolve => setTimeout(resolve, WIKIDATA_RETRY_DELAY));
-          }
-        }
-      }
-      
-      console.error('Wikidata fetch failed after retries:', lastError);
-      lastWikidataCheck = new Date();
-      return false; // Default to Not yet on any error
-    }
-
     // Worker API timeout. On a cold cache the Worker runs the full pipeline
     // synchronously: Perplexity retrieval (~15s) → Claude judge → full-text
     // fetch of the selected articles → a second Claude pass to refine verdicts.
@@ -259,22 +187,13 @@
 
     function formatScoreboardStatus(isYes, isForced = false) {
       if (isForced) {
-        return isYes 
+        return isYes
           ? 'Scoreboard overridden: YES (forced via query param)'
           : 'Scoreboard overridden: NOT YET (forced via query param)';
       }
-      if (lastWikidataCheck) {
-        const timeStr = lastWikidataCheck.toLocaleTimeString('en-GB', {
-          hour: '2-digit',
-          minute: '2-digit'
-        });
-        return isYes 
-          ? `Scoreboard last checked: ${timeStr} · confirmed via Wikidata Q145 · P6`
-          : `Scoreboard last checked: ${timeStr} · the default answer is usually correct`;
-      }
-      return isYes 
-        ? 'Scoreboard last checked: just now · confirmed via Wikidata Q145 · P6'
-        : 'Scoreboard last checked: just now · the default answer is usually correct';
+      return isYes
+        ? 'Scoreboard settled · he is behind the famous door · a matter of record (Wikidata Q145 · P6)'
+        : 'Scoreboard status: the default answer is usually correct';
     }
 
     function updatePMCount() {
@@ -287,9 +206,9 @@
     function updateFooterStatus() {
       const footerStatusEl = document.getElementById('footer-status');
       if (footerStatusEl) {
-        footerStatusEl.textContent = currentState === states.LOADING 
-          ? 'Scoreboard checking…' 
-          : 'Scoreboard checked: just now';
+        footerStatusEl.textContent = currentState === states.LOADING
+          ? 'Scoreboard checking…'
+          : 'Scoreboard settled';
       }
     }
 
@@ -501,7 +420,8 @@
           isYes = false;
           isForced = true;
         } else {
-          isYes = await fetchWikidataAnswer();
+          // No live check — the answer is settled. Default to "Yes".
+          isYes = DEFAULT_ANSWER_YES;
         }
 
         // Fetch commentary data
