@@ -72,7 +72,9 @@ This is everything the visitor actually sees. It's a single web page (`public/in
 
 ### The headline answer — a settled question
 
-Andy Burnham is Prime Minister, so the headline answer is simply "Yes." It's a fixed constant in `public/app.js` (`DEFAULT_ANSWER_YES`), served with the page — there's no live lookup to perform. Flipping that single constant would reverse the verdict should the world ever oblige.
+Andy Burnham is Prime Minister, so the headline answer is simply "Yes." It's a fixed constant in `public/app.js` (`DEFAULT_ANSWER_YES`), served with the page — there's no live lookup to perform. It's painted immediately on load; only the odds desk and press panel below it show a brief loading moment, because they genuinely fetch from the Worker.
+
+The answer actually lives in **two** places that must agree: `DEFAULT_ANSWER_YES` (what the script renders) and the static defaults hard-coded into `public/index.html` (the hero text, its colour, the PM count, the footer status), which are what a scriptless visitor — or the very first paint before the script runs — sees. To reverse the verdict, flip the constant *and* update those static defaults.
 
 **How it used to work.** Until Burnham took office, the page couldn't hard-code the answer, so your *own browser* quietly asked **Wikidata** — the free, community-run database of facts behind Wikipedia — *"Who is recorded as holding the office of UK Prime Minister?"* and checked whether "Burnham" was in the reply. That kept the answer *true by construction* and self-updating, right up to the day it flipped. With the question now settled, that live check has been retired, and the browser no longer contacts Wikidata at all.
 
@@ -80,7 +82,7 @@ For anyone wanting to see the old "Not yet" state, appending `?force=no` to the 
 
 ### The odds desk and the press panel — from the Worker
 
-While the headline is being fetched, the page also asks the Worker for the "commentary": the probability number and the three articles. This arrives as a small packet of data that the page lays out into the odds readout and the three article cards.
+With the headline already settled, the page asks the Worker for the "commentary": the probability number and the three articles. This arrives as a small packet of data that the page lays out into the odds readout and the three article cards.
 
 ### A few hidden controls
 
@@ -170,7 +172,7 @@ The fourth constraint was "never break embarrassingly," and the site takes it se
 | The AI editor returns nonsense | A single plain, factual article card instead of a panel |
 | The whole pipeline errors out | An empty-but-tidy result, served calmly with no error message |
 
-The page also enforces a **minimum two-second loading moment** with rotating words like "Cogitating…" and "Consulting the scoreboard…" — partly for charm, partly so a lightning-fast cache hit doesn't flash past before the visitor's eye can catch it.
+The page also enforces a **minimum two-second loading moment** on the odds desk and press panel — partly for charm, partly so a lightning-fast cache hit doesn't flash past before the visitor's eye can catch it. The headline answer is exempt: it's a settled fact, so it paints immediately rather than sitting behind the delay.
 
 ---
 

@@ -5,8 +5,10 @@
     // ========================================
     const BASE_PM_COUNT = 6;
     // Andy Burnham is Prime Minister. The question is settled, so the answer is
-    // a fixed "Yes" — the live Wikidata scoreboard check has been retired. Flip
-    // this single constant to reverse the verdict should the world ever oblige.
+    // a fixed "Yes" — there is no live check; the verdict is a constant.
+    // To reverse it, flip this constant AND update the static defaults baked
+    // into index.html (hero answer text, period colour, PM count, footer
+    // status), which give scriptless and first-paint visitors the same answer.
     const DEFAULT_ANSWER_YES = true;
 
     // ========================================
@@ -61,49 +63,6 @@
         year: 'numeric'
       };
       return date.toLocaleDateString('en-GB', options);
-    }
-
-    const LOADING_WORDS = [
-      'Checking',
-      'Asking the oracle',
-      'Cogitating',
-      'Pondering',
-      'Consulting the scoreboard',
-      'Verifying',
-      'Confirming',
-      'Deliberating',
-      'Ruminating',
-      'Musing',
-      'Examining',
-      'Investigating',
-      'Divining',
-      'Probing',
-      'Scrutinizing',
-      'Evaluating',
-      'Assessing',
-      'Deciphering',
-      'Weighing'
-    ];
-
-    function getRandomLoadingWord() {
-      const index = Math.floor(Math.random() * LOADING_WORDS.length);
-      return LOADING_WORDS[index];
-    }
-
-    function setHeroLoading() {
-      const heroStatusEl = document.getElementById('hero-status');
-      const heroAnswerTextEl = document.getElementById('hero-answer-text');
-      const heroPeriodEl = document.getElementById('hero-period');
-      
-      if (heroStatusEl) {
-        heroStatusEl.textContent = 'Checking the scoreboard…';
-      }
-      if (heroAnswerTextEl) {
-        heroAnswerTextEl.innerHTML = getRandomLoadingWord() + '<span class="loading-ellipsis">…</span>';
-      }
-      if (heroPeriodEl) {
-        heroPeriodEl.textContent = '';
-      }
     }
 
     // ========================================
@@ -191,6 +150,9 @@
           ? 'Scoreboard overridden: YES (forced via query param)'
           : 'Scoreboard overridden: NOT YET (forced via query param)';
       }
+      // The non-forced "Not yet" line is unreachable while DEFAULT_ANSWER_YES
+      // is true (the only route to "Not yet" is ?force=no, which sets isForced).
+      // Retained for the DEFAULT_ANSWER_YES flip — do not prune as dead code.
       return isYes
         ? 'Scoreboard settled · he is behind the famous door · a matter of record (Wikidata Q145 · P6)'
         : 'Scoreboard status: the default answer is usually correct';
@@ -394,7 +356,6 @@
       try {
         // Set up dynamic elements
         updateMastheadDate();
-        setHeroLoading();
 
         // Check for forced YES state
         const urlParams = new URLSearchParams(window.location.search);
@@ -412,7 +373,7 @@
         // Determine hero answer
         let isYes;
         let isForced = false;
-        
+
         if (forceYes) {
           isYes = true;
           isForced = true;
@@ -424,17 +385,21 @@
           isYes = DEFAULT_ANSWER_YES;
         }
 
+        // The headline answer is a settled fact, not a live lookup, so paint it
+        // immediately rather than blanking it behind the loading delay. Only the
+        // odds desk and press panel below — which genuinely load from the
+        // Worker — keep the loading treatment.
+        renderHero(isYes, isForced);
+
         // Fetch commentary data
         let commentary = null;
         if (!simulateOffline && !simulateJudgeFail) {
           commentary = await fetchCommentary();
         }
 
-        // Ensure minimum loading time before rendering anything
+        // Ensure minimum loading time before rendering the commentary sections,
+        // so a fast cache hit doesn't flash past before the eye can catch it.
         await ensureMinLoadingTime();
-
-        // Now render everything after the delay
-        renderHero(isYes, isForced);
 
         // Determine state and render commentary
         if (simulateOffline) {
@@ -498,4 +463,4 @@
   
 // Exported for unit testing (see test/render.test.js). The browser loads this
 // module via <script type="module"> and self-bootstraps above.
-export { createArticleCard, getVerdictLabel };
+export { createArticleCard, getVerdictLabel, renderHero, formatScoreboardStatus };
