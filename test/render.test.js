@@ -1,8 +1,12 @@
 // ABOUT: Front-end render tests — the S-1 XSS regression guard.
 // ABOUT: Verifies createArticleCard escapes untrusted article fields.
 // @vitest-environment happy-dom
-import { describe, it, expect } from 'vitest';
-import { createArticleCard } from '../public/app.js';
+import { describe, it, expect, beforeEach } from 'vitest';
+import {
+  createArticleCard,
+  renderHero,
+  formatScoreboardStatus,
+} from '../public/app.js';
 import { extractText } from '../src/worker.js';
 
 describe('createArticleCard', () => {
@@ -88,6 +92,70 @@ describe('createArticleCard', () => {
 
     expect(card.querySelector('.article-title a')).toBeNull();
     expect(card.querySelector('.article-title').textContent).toBe('Sketchy');
+  });
+});
+
+// The headline verdict is the site's single most important output. These guard
+// the settled-"Yes" default and the ?force=no historical preview against a
+// future refactor of the render path.
+describe('renderHero — the settled headline answer', () => {
+  beforeEach(() => {
+    document.body.innerHTML = `
+      <div id="hero-answer">
+        <span id="hero-answer-text">Yes</span><span id="hero-period"></span>
+      </div>
+      <div id="hero-subtitle"></div>
+      <div id="hero-status"></div>
+      <span id="pm-count">6</span>
+      <span id="footer-status">Scoreboard checking…</span>`;
+  });
+
+  it('renders the default settled "Yes" — green period, PM count 7, settled footer', () => {
+    renderHero(true, false);
+
+    expect(document.getElementById('hero-answer-text').textContent).toBe('Yes');
+    const period = document.getElementById('hero-period');
+    expect(period.textContent).toBe('.');
+    expect(period.style.color).toBe('var(--green)');
+    expect(document.getElementById('pm-count').textContent).toBe('7');
+    expect(document.getElementById('footer-status').textContent).toBe(
+      'Scoreboard settled',
+    );
+    expect(document.getElementById('hero-status').textContent).toContain(
+      'Scoreboard settled',
+    );
+  });
+
+  it('previews the historical "Not yet" state under ?force=no', () => {
+    renderHero(false, true);
+
+    expect(document.getElementById('hero-answer-text').textContent).toBe(
+      'Not yet',
+    );
+    expect(document.getElementById('hero-period').style.color).toBe(
+      'var(--amber)',
+    );
+    expect(document.getElementById('pm-count').textContent).toBe('6');
+    expect(document.getElementById('hero-status').textContent).toBe(
+      'Scoreboard overridden: NOT YET (forced via query param)',
+    );
+  });
+});
+
+describe('formatScoreboardStatus', () => {
+  it('states the settled answer without implying a live check', () => {
+    const status = formatScoreboardStatus(true, false);
+    expect(status).toContain('Scoreboard settled');
+    expect(status).not.toMatch(/checking|last checked|just now/i);
+  });
+
+  it('uses the overridden wording for forced states', () => {
+    expect(formatScoreboardStatus(true, true)).toBe(
+      'Scoreboard overridden: YES (forced via query param)',
+    );
+    expect(formatScoreboardStatus(false, true)).toBe(
+      'Scoreboard overridden: NOT YET (forced via query param)',
+    );
   });
 });
 

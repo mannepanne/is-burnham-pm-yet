@@ -148,7 +148,7 @@ const CSP = [
   "script-src 'self' https://static.cloudflareinsights.com",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src https://fonts.gstatic.com",
-  "connect-src 'self' https://query.wikidata.org https://cloudflareinsights.com",
+  "connect-src 'self' https://cloudflareinsights.com",
   "img-src 'self' data:",
   "frame-ancestors 'none'",
   "base-uri 'none'",

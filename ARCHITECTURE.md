@@ -8,11 +8,11 @@ This document explains how the site works behind the scenes. It's written for a 
 
 ## What the site does
 
-The whole site exists to answer one question: **has Andy Burnham become Prime Minister yet?** Almost always, the answer is "Not yet." One day — maybe — it will flip to "Yes," and the page will know within hours, all on its own, without anyone touching it.
+The whole site exists to answer one question: **has Andy Burnham become Prime Minister yet?** He now has, so the answer is a settled "Yes." For most of the site's life the answer was "Not yet," and a live check watched for the day it would flip; that day has arrived, so the answer is now a fixed constant and the live check has been retired.
 
 There are three things on the page:
 
-1. **The headline answer** — a giant "Not yet." (or one day, "Yes.")
+1. **The headline answer** — a giant "Yes."
 2. **The odds desk** — a tongue-in-cheek probability, like "24% he's behind the famous door by September."
 3. **The press panel** — three real, recent newspaper articles about Burnham, each with a one-line verdict that gently calls out whether the coverage is *substantive* or just *fixating on his anorak*.
 
@@ -24,7 +24,7 @@ The joke of the site is the contrast: a calm, factual answer at the top, and und
 
 Every technical choice on this site flows from four simple constraints. Keep these in mind and the rest of the design more or less explains itself.
 
-- **It must answer truthfully, by itself.** The "Yes / Not yet" answer can't be something a human types in and forgets to update. It has to come from a source of fact that updates automatically when Burnham actually becomes PM.
+- **It must answer truthfully.** For most of the site's life this meant the "Yes / Not yet" answer couldn't be something a human typed in and forgot to update — it came from a source of fact that updated automatically. Now that Burnham *is* PM the question is settled, so the answer is a fixed "Yes" and the automatic check has been retired (see ["The headline answer"](#the-headline-answer--a-settled-question) below).
 - **It must be cheap to run.** This is a hobby site. It calls some paid artificial-intelligence services, so it must avoid paying for the same work over and over.
 - **It must be fast for visitors.** Nobody waits 30 seconds for a website to load. The page should appear more or less instantly.
 - **It must never break embarrassingly.** If a paid service is down, or returns nonsense, the page should still look finished and on point — never a blank screen or an error.
@@ -48,12 +48,10 @@ graph TD
     end
 
     subgraph Outside services
-        Wikidata[Wikidata<br/>the factual answer]
         Perplexity[Perplexity AI<br/>finds news articles]
         Claude[Claude AI<br/>judges the articles]
     end
 
-    Visitor -->|Is Burnham PM?| Wikidata
     Visitor -->|Give me the commentary| Worker
     Worker -->|Seen this recently?| KV
     Cron -->|Wake up and refresh| Worker
@@ -63,7 +61,7 @@ graph TD
 
 Two important things to notice:
 
-- **The factual answer and the commentary come from different places.** The big "Not yet" comes straight from **Wikidata** (more on that below), asked by the visitor's own browser. The clever press commentary comes from the **Worker**. They're kept separate on purpose — so that even if all the fancy AI commentary fails, the factual answer still works.
+- **The factual answer and the commentary come from different places.** The big "Yes" is now a settled fact baked straight into the page (more on that below) — no live lookup. The clever press commentary comes from the **Worker**. They're kept separate on purpose — so that even if all the fancy AI commentary fails, the factual answer still stands.
 - **The expensive work happens on a timer, not on every visit.** That's the cache and the clock, and it's the single most important idea for keeping the site cheap and fast.
 
 ---
@@ -72,23 +70,23 @@ Two important things to notice:
 
 This is everything the visitor actually sees. It's a single web page (`public/index.html`) styled to look like an old-fashioned broadsheet newspaper, plus a script (`public/app.js`) that fills in the live bits.
 
-### The headline answer — straight from the record books
+### The headline answer — a settled question
 
-When you load the page, your *own browser* quietly asks **Wikidata** a question. Wikidata is the free, community-run database of facts that sits behind Wikipedia. It knows, as a structured fact, who the current Prime Minister of the United Kingdom is.
+Andy Burnham is Prime Minister, so the headline answer is simply "Yes." It's a fixed constant in `public/app.js` (`DEFAULT_ANSWER_YES`), served with the page — there's no live lookup to perform. It's painted immediately on load; only the odds desk and press panel below it show a brief loading moment, because they genuinely fetch from the Worker.
 
-The page asks: *"Who are the people recorded as holding the office of UK Prime Minister?"* and then simply checks whether "Burnham" is in the answer. If it is — "Yes." If not — "Not yet."
+The answer actually lives in **two** places that must agree: `DEFAULT_ANSWER_YES` (what the script renders) and the static defaults hard-coded into `public/index.html` (the hero text, its colour, the PM count, the footer status), which are what a scriptless visitor — or the very first paint before the script runs — sees. To reverse the verdict, flip the constant *and* update those static defaults.
 
-**Why do it this way?** Because it satisfies the first constraint: the answer is *true by construction* and updates itself. The day Burnham actually becomes PM, Wikipedia and Wikidata will be updated within minutes by the world's editors, and this site will start saying "Yes" without anyone touching the code. It's the calm, authoritative heartbeat of the whole site.
+**How it used to work.** Until Burnham took office, the page couldn't hard-code the answer, so your *own browser* quietly asked **Wikidata** — the free, community-run database of facts behind Wikipedia — *"Who is recorded as holding the office of UK Prime Minister?"* and checked whether "Burnham" was in the reply. That kept the answer *true by construction* and self-updating, right up to the day it flipped. With the question now settled, that live check has been retired, and the browser no longer contacts Wikidata at all.
 
-If Wikidata is slow or unreachable, the page tries a couple more times, then quietly defaults to "Not yet" — which, statistically, is almost certainly still correct.
+For anyone wanting to see the old "Not yet" state, appending `?force=no` to the URL still renders it.
 
 ### The odds desk and the press panel — from the Worker
 
-While the headline is being fetched, the page also asks the Worker for the "commentary": the probability number and the three articles. This arrives as a small packet of data that the page lays out into the odds readout and the three article cards.
+With the headline already settled, the page asks the Worker for the "commentary": the probability number and the three articles. This arrives as a small packet of data that the page lays out into the odds readout and the three article cards.
 
 ### A few hidden controls
 
-For testing and demos, you can add things to the web address to force different looks: `?force=yes` pretends Burnham won, `?force=no` forces the default, `?simulate=offline` shows what happens when the commentary service is down, and `?simulate=judge-fail` shows the graceful fallback. Handy for checking every state looks right without waiting for the real world to cooperate.
+For testing and demos, you can add things to the web address to force different looks: `?force=yes` pins the "Yes" answer (also the default now), `?force=no` shows the historical "Not yet" state, `?simulate=offline` shows what happens when the commentary service is down, and `?simulate=judge-fail` shows the graceful fallback. Handy for checking every state looks right.
 
 ---
 
@@ -170,12 +168,11 @@ The fourth constraint was "never break embarrassingly," and the site takes it se
 
 | If this fails… | …the visitor sees |
 | --- | --- |
-| Wikidata is unreachable | "Not yet" (the safe default, almost always correct) |
 | The commentary service is down | A pre-written "from the archive" trio of (fictional) articles |
 | The AI editor returns nonsense | A single plain, factual article card instead of a panel |
 | The whole pipeline errors out | An empty-but-tidy result, served calmly with no error message |
 
-The page also enforces a **minimum two-second loading moment** with rotating words like "Cogitating…" and "Consulting the scoreboard…" — partly for charm, partly so a lightning-fast cache hit doesn't flash past before the visitor's eye can catch it.
+The page also enforces a **minimum two-second loading moment** on the odds desk and press panel — partly for charm, partly so a lightning-fast cache hit doesn't flash past before the visitor's eye can catch it. The headline answer is exempt: it's a settled fact, so it paints immediately rather than sitting behind the delay.
 
 ---
 
@@ -200,4 +197,4 @@ This document is the map. The detailed territory lives in:
 - **`SPECIFICATIONS/ARCHIVE/`** — the original phase-by-phase plans the site was built from.
 - **`README.md`** — the quick-start summary.
 
-The short version, though, is the one at the very top: a calm factual answer from Wikidata, a little AI-run newsroom producing the commentary on a timer, a cache making it all fast and cheap, and a safety net under every part of it.
+The short version, though, is the one at the very top: a calm, settled "Yes" baked into the page, a little AI-run newsroom producing the commentary on a timer, a cache making it all fast and cheap, and a safety net under every part of it.
