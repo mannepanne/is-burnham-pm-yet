@@ -14,6 +14,11 @@ Read `personal-profile.local.md` if it exists (gitignored, operator's personalis
 
 Step-by-step instructions for personalising the profile, handling the "keep as-is" case, making the file private, and guiding the operator to the project-outline conversation.
 
+### [writing-style.md](./writing-style.md)
+**When to read:** When writing anything longer than a few sentences. The short form is always loaded from `.claude/CLAUDE.md`; this file holds the full rule and examples. Applies to chat replies, review output, PR comments, commit messages, and documentation.
+
+Plain statement over performance: the mechanism behind mannered prose, nine checkable rules (lead with the conclusion, one idea per sentence, praise capped at three sentences, length in units), and a table of patterns that signal performance rather than statement.
+
 ### [documentation-standards.md](./documentation-standards.md)
 **When to read:** Creating or updating project documentation, README files, or reference guides.
 

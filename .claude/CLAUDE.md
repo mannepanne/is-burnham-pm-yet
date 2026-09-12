@@ -55,7 +55,7 @@ You'll still maintain all core collaboration principles from the personal profil
 - **NEVER push to main directly** - ALL changes (code, docs, anything) require a feature branch + PR. This is as critical as not committing secrets. Zero exceptions. Check your branch BEFORE making any changes.
 - **Document issues as tasks** - If you notice something that should be fixed but is unrelated to your current task, document it as a new task to potentially do later instead of fixing it immediately.
 - **Keep documentation current** - When making significant changes to architecture, APIs, or core functionality, proactively update project documentation to reflect the new reality. Use the designated documentation folders for implementation details.
-- **Don't waste tokens** - Be succinct and concise.
+- **Write plainly** - Lead with the conclusion. One idea per sentence, ordinary sentences with a subject and a verb. No preamble, no closing paragraph that repeats the body, no praise beyond three sentences. Remove all mannered prose: when a literal phrase is available, use it. Lists for parallel items, prose for argument, length in units (a review finding is one to three lines). Full rule and examples: [writing-style.md](./COLLABORATION/writing-style.md).
 
 ### Decision making process
 1. **Evidence-based pushback**: Cite specific reasons when disagreeing
@@ -265,7 +265,7 @@ We value documentation - it enables picking up projects later and communicating 
 **Writing style:**
 - **British English** - Use British spelling throughout (optimise not optimize, minimise not minimize, colour not color, etc.)
 - **Headline capitalisation** - Only capitalise the first word in headlines and proper nouns, not every word (e.g., "Getting started with the project" not "Getting Started With The Project")
-- **Consistency** - Match the style of existing documentation when editing
+- **Consistency** - Match the style of existing documentation when editing. Prose rules (plain statement, length budgets) are in [writing-style.md](./COLLABORATION/writing-style.md)
 
 ### Proactive doc-refresh offers
 
