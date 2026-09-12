@@ -46,7 +46,7 @@
       {
         outlet: 'The Northern Question',
         date: '19 Jun',
-        title: 'Could the 07:42 tram to Altrincham hold the key to Number 10?',
+        title: 'Could the 07:42 tram to Altrincham decide who keeps Number 10?',
         verdict: 'fixating',
         caption: 'a tram timetable'
       }
