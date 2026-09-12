@@ -9,6 +9,7 @@ import worker, {
   refineWithFullText,
   isPublicHttpsUrl,
   normalizeUrl,
+  stripTrailingDate,
   computeJudgePool,
   appendToArchive,
   paginate,
@@ -532,6 +533,39 @@ describe('normalizeUrl', () => {
     expect(normalizeUrl('')).toBeNull();
     expect(normalizeUrl('not a url')).toBeNull();
     expect(normalizeUrl(42)).toBeNull();
+  });
+});
+
+describe('stripTrailingDate', () => {
+  it('strips a trailing ISO date left by the retrieval slug', () => {
+    expect(
+      stripTrailingDate('UK finance minister walks fiscal tightrope before first budget 2026-09-07'),
+    ).toBe('UK finance minister walks fiscal tightrope before first budget');
+  });
+
+  it('strips a trailing ISO date joined by a hyphen (slug form)', () => {
+    expect(stripTrailingDate('Healey walks fiscal tightrope-2026-09-07')).toBe(
+      'Healey walks fiscal tightrope',
+    );
+  });
+
+  it('leaves a year that is genuinely part of the headline', () => {
+    expect(stripTrailingDate('Everything you need to know about Budget 2026')).toBe(
+      'Everything you need to know about Budget 2026',
+    );
+  });
+
+  it('leaves a date embedded mid-headline (only a trailing date is stripped)', () => {
+    expect(stripTrailingDate('The 2026-09-07 budget, explained')).toBe(
+      'The 2026-09-07 budget, explained',
+    );
+  });
+
+  it('returns non-string or absent input unchanged', () => {
+    expect(stripTrailingDate('')).toBe('');
+    expect(stripTrailingDate(null)).toBeNull();
+    expect(stripTrailingDate(undefined)).toBeUndefined();
+    expect(stripTrailingDate(42)).toBe(42);
   });
 });
 

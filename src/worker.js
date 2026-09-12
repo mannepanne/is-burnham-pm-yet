@@ -241,6 +241,13 @@ async function runPipeline(env, { seen } = {}) {
   try {
     // Stage 1: Perplexity retrieves a representative pool
     const found = await retrievePool(env);
+    // Clean pool titles once, at this single choke point, so both the judge
+    // candidates and the final panel see headlines free of slug-derived dates.
+    if (Array.isArray(found.pool)) {
+      for (const a of found.pool) {
+        if (a) a.title = stripTrailingDate(a.title);
+      }
+    }
     const meta = {
       probability_pct: found.probability_pct ?? null,
       one_line: found.one_line ?? ""
@@ -692,6 +699,17 @@ function normalizeUrl(raw) {
   return `${host}${path}`;
 }
 
+// Perplexity sometimes appends a trailing ISO date to a title, derived from the
+// source URL slug (e.g. "...before first budget 2026-09-07"), which then renders
+// as part of the headline. Strip a full YYYY-MM-DD that sits at the very end,
+// with any leading space or dash separator. Conservative by design: only a
+// complete ISO date at the end is removed, so a year that is genuinely part of a
+// headline ("Budget 2026") or a date embedded mid-title is left intact.
+function stripTrailingDate(title) {
+  if (typeof title !== "string") return title;
+  return title.replace(/[\s–—-]*\d{4}-\d{2}-\d{2}\s*$/, "").trim();
+}
+
 // Choose which pool articles the judge sees, biased toward those not shown before
 // so the panel rotates across cron cycles. `seenSet` holds normalised URLs already
 // in the archive.
@@ -820,6 +838,7 @@ export {
   refineWithFullText,
   isPublicHttpsUrl,
   normalizeUrl,
+  stripTrailingDate,
   computeJudgePool,
   appendToArchive,
   paginate,
