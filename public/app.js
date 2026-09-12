@@ -409,7 +409,7 @@
           currentState = states.OFFLINE;
         } else if (simulateJudgeFail) {
           // Judge failed state - show single noting card with mock data
-          renderOddsDesk({ probability_pct: 24, one_line: '...on whether the famous door stays his after the next election.' });
+          renderOddsDesk({ probability_pct: 24, one_line: '…on whether he gets to keep the famous door.' });
           renderJudgeFailed({
             articles: [{
               outlet: 'Westminster Lobby Wire',
@@ -463,4 +463,4 @@
   
 // Exported for unit testing (see test/render.test.js). The browser loads this
 // module via <script type="module"> and self-bootstraps above.
-export { createArticleCard, getVerdictLabel, renderHero, formatScoreboardStatus };
+export { createArticleCard, getVerdictLabel, renderHero, renderOddsDesk, formatScoreboardStatus };

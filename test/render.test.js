@@ -5,6 +5,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import {
   createArticleCard,
   renderHero,
+  renderOddsDesk,
   formatScoreboardStatus,
 } from '../public/app.js';
 import { extractText } from '../src/worker.js';
@@ -156,6 +157,44 @@ describe('formatScoreboardStatus', () => {
     expect(formatScoreboardStatus(false, true)).toBe(
       'Scoreboard overridden: NOT YET (forced via query param)',
     );
+  });
+});
+
+// The odds bar signals confidence by colour: green once survival past the next
+// election looks likely, amber while it's in doubt. Guards the >66 threshold.
+describe('renderOddsDesk — bar colour threshold', () => {
+  beforeEach(() => {
+    document.body.innerHTML = `
+      <div id="odds-percentage"></div>
+      <div id="odds-caption"></div>
+      <div id="odds-bar"></div>`;
+  });
+
+  const barFill = () =>
+    document.getElementById('odds-bar').querySelector('.odds-bar-fill');
+
+  it('paints the bar green above 66%', () => {
+    renderOddsDesk({ probability_pct: 67, one_line: 'x' });
+    expect(barFill().classList.contains('green')).toBe(true);
+    expect(barFill().classList.contains('amber')).toBe(false);
+  });
+
+  it('paints the bar amber at exactly 66% (boundary is exclusive)', () => {
+    renderOddsDesk({ probability_pct: 66, one_line: 'x' });
+    expect(barFill().classList.contains('amber')).toBe(true);
+    expect(barFill().classList.contains('green')).toBe(false);
+  });
+
+  it('paints the bar amber for a low-but-positive probability', () => {
+    renderOddsDesk({ probability_pct: 24, one_line: 'x' });
+    expect(barFill().classList.contains('amber')).toBe(true);
+  });
+
+  it('renders the placeholder loading bar with no fill when probability is missing', () => {
+    renderOddsDesk(null);
+    const bar = document.getElementById('odds-bar');
+    expect(bar.className).toContain('loading-bar');
+    expect(bar.querySelector('.odds-bar-fill')).toBeNull();
   });
 });
 
