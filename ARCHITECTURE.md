@@ -13,7 +13,7 @@ The whole site exists to answer one question: **has Andy Burnham become Prime Mi
 There are three things on the page:
 
 1. **The headline answer** — a giant "Yes."
-2. **The odds desk** — a tongue-in-cheek probability, like "24% he's behind the famous door by September."
+2. **The odds desk** — a tongue-in-cheek probability that he is *still* PM after the next general election, like "24% — on whether he gets to keep the famous door."
 3. **The press panel** — three real, recent newspaper articles about Burnham, each with a one-line verdict that gently calls out whether the coverage is *substantive* or just *fixating on his anorak*.
 
 The joke of the site is the contrast: a calm, factual answer at the top, and underneath it, an affectionate skewering of how breathlessly the British press covers Westminster gossip.
