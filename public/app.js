@@ -190,7 +190,7 @@
       }
 
       const probability = Math.min(100, Math.max(0, Math.round(data.probability_pct)));
-      const caption = data.one_line || '…that he\'s behind the famous door by September.';
+      const caption = data.one_line || '…on whether he gets to keep the famous door.';
 
       percentageEl.textContent = probability + '%';
       percentageEl.classList.remove('odds-placeholder');
@@ -199,7 +199,7 @@
       captionEl.classList.remove('odds-placeholder');
 
       barEl.className = 'odds-bar';
-      const barColor = probability > 0 ? (probability === 100 ? 'green' : 'amber') : '';
+      const barColor = probability > 0 ? (probability > 66 ? 'green' : 'amber') : '';
       barEl.innerHTML = `<div class="odds-bar-fill ${barColor}" style="width: ${probability}%"></div>`;
     }
 
@@ -409,7 +409,7 @@
           currentState = states.OFFLINE;
         } else if (simulateJudgeFail) {
           // Judge failed state - show single noting card with mock data
-          renderOddsDesk({ probability_pct: 24, one_line: '...that he\'s behind the famous door by September.' });
+          renderOddsDesk({ probability_pct: 24, one_line: '...on whether the famous door stays his after the next election.' });
           renderJudgeFailed({
             articles: [{
               outlet: 'Westminster Lobby Wire',
