@@ -56,6 +56,11 @@ TEMPLATE-UPDATES/
 
 **When to apply:** Urgently, if the project's reviewer agents still say "Read full file context where needed using the Read tool". The bug it fixes silently moves you off your branch mid-review, so later commits miss the PR — a downstream project lost two commits to it before catching it by hand. Especially urgent if the project runs with permissive tool settings (`bypassPermissions`, `dontAsk`, or a broadened git allowlist), because then nothing prompts before the checkout. **Requires `2026-07-fan-out-review-synthesis` to have landed first.** Two of this packet's three skill edits anchor on the parallel-spawn steps that packet introduces (`review-pr-team` Step 1, `review-spec` Step 2); in a pre-fan-out project those steps still read `Create Agent Team` and there are no `Agent` spawn calls to attach `isolation: "worktree"` to. Apply the two back to back, in one sitting — see the ordering note in that packet.
 
+### [2026-09-plain-review-output/](./2026-09-plain-review-output/)
+**What it rolls out:** Plain, digestible output. A single style reference (`.claude/COLLABORATION/writing-style.md`) that defines mannered prose as a mechanism with examples rather than a banned-word list; the short form of the rule in the always-loaded file; an output style contract for reviewer prompts (one to three lines per finding, strengths capped at three sentences) carried in each reviewer's own Output Format; and synthesis templates rewritten to verdict-first, one line per finding, an unresolved-disagreements section, no count block, and a one-screen budget. Covers PR #67.
+
+**When to apply:** **Standalone. No prerequisite packets, and the project need not derive from this template.** The packet routes on what the project has: an always-loaded instruction file (every project, Layer 1), reviewer prompts (Layer 2), synthesis prompts (Layer 3), or this template's exact agents and skills (Layer 4). Apply if review output runs past a screen, findings carry sub-bullets, or chat replies have started to perform rather than state. Where the fixed-order Role block from `2026-07-untrusted-input-coverage` exists, the new pointer line appends as its third item; where it does not, the packet says where the line goes instead.
+
 ---
 
 ## Authoring a new packet
